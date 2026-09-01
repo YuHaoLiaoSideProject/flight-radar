@@ -67,11 +67,8 @@ flowchart TD
 
     CHECK -->|"fast-flights<br/>(預設)"| FF["fast_flights.get_flights()<br/>Google Flights 爬取"]
     CHECK -->|"--amadeus"| AMA["amadeus.shopping.flight_offers_search()"]
-    CHECK -->|"--no-fast-flights"| BASE["get_baseline_prices_for_route()<br/>基準行情"]
-
     FF --> COMPARE{"比對上次快照"}
     AMA --> COMPARE
-    BASE --> COMPARE
 
     COMPARE -->|"價格不同"| WRITE["寫入新快照<br/>data/raw/{airline}/{route}/<br/>YYYY-MM-DD.json"]
     COMPARE -->|"價格相同"| SKIP["跳過（去重）"]
@@ -301,19 +298,6 @@ flowchart TD
     H3["snapshot 3<br/>2025-08-29"] -->|dep_ret key| HM
     H4["snapshot 4<br/>2025-09-01"] -->|dep_ret key| HM
     HM -->|"去重：連續相同價格不重複"| HIST["history[]<br/>依日期排序"]
-```
-
-### 假期標籤乘數
-
-假期標籤會影響票價顯示的倍數與加成。
-
-```mermaid
-flowchart LR
-    T1["春節"] -->|2.5x + 3000| P1[" NT$37,130"]
-    T2["櫻花滿開"] -->|2.0x + 2000| P2[" NT$30,450"]
-    T3["賞楓"] -->|1.3x + 1000| P3[" NT$18,747"]
-    T4["跨年"] -->|1.25x + 1000| P4[" NT$18,065"]
-    T5["一般"] -->|1.08x| P5[" NT$14,744"]
 ```
 
 ---

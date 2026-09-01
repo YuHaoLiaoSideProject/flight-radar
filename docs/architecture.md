@@ -106,7 +106,6 @@ graph LR
     subgraph Shared["shared.py 共用模組"]
         GEN["generate_weekly_dates()<br/>生成 40 週日期"]
         HOL["get_holiday_tag()<br/>假期判斷"]
-        BASE["get_baseline_prices()<br/>基準票價"]
         SNAP["get_latest_snapshot()<br/>最新快照"]
         ALLSNAP["get_all_snapshots()<br/>所有快照"]
     end
@@ -124,8 +123,6 @@ graph LR
     GEN --> FF
     HOL --> FRD
     HOL --> FF
-    BASE --> FRD
-    BASE --> FF
     SNAP --> FRD
     ALLSNAP --> BA
 ```

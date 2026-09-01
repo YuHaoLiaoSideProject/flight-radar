@@ -8,7 +8,6 @@ from shared import (
     CONFIG_PATH,
     PUBLIC_DIR,
     generate_weekly_dates,
-    get_baseline_prices_for_route,
 )
 
 
@@ -138,11 +137,11 @@ def main():
     week_dates = generate_weekly_dates(weeks_ahead=40, trip_days=8)
     now_str = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S (UTC+8)")
 
-    # Determine data source priority: fast-flights > Amadeus > baseline
+    # Determine data source priority: fast-flights > Amadeus
     use_fast_flights = "--no-fast-flights" not in sys.argv
     use_amadeus = "--amadeus" in sys.argv
 
-    print(f"📊 資料來源: {'fast-flights (Google Flights)' if use_fast_flights else 'Amadeus' if use_amadeus else 'Baseline'}")
+    print(f"📊 資料來源: {'fast-flights (Google Flights)' if use_fast_flights else 'Amadeus' if use_amadeus else 'N/A (all sources disabled)'}")
     print(f"📅 查詢 {len(week_dates)} 週, {len(routes_config)} 條航線\n")
 
     # Group by airline
@@ -173,10 +172,10 @@ def main():
         if weekly_data is None and use_amadeus:
             weekly_data = fetch_flights_amadeus(route, week_dates)
 
-        # Final fallback: baseline prices
+        # Final fallback: all sources failed — set price to None
         if weekly_data is None:
-            print(f"  📋 使用基準行情資料 (fallback)")
-            weekly_data = get_baseline_prices_for_route(route_id, week_dates)
+            print(f"  ⚠️ 所有資料來源皆失敗，設為無資料")
+            weekly_data = [{**item, "price": None} for item in week_dates]
 
         valid_prices = [x["price"] for x in weekly_data if x["price"] is not None]
         min_price = min(valid_prices) if valid_prices else 0
@@ -200,7 +199,7 @@ def main():
             "stayDays": route.get("stayDays", 8),
             "updatedAt": now_str,
             "weeksCount": len(weekly_data),
-            "dataSource": "fast-flights" if (use_fast_flights and weekly_data and weekly_data[0].get("price") is not None and "--no-fast-flights" not in sys.argv) else "amadeus" if use_amadeus else "baseline",
+            "dataSource": "fast-flights" if (use_fast_flights and weekly_data and weekly_data[0].get("price") is not None and "--no-fast-flights" not in sys.argv) else "amadeus" if use_amadeus else "unknown",
             "stats": {
                 "minPrice": min_price,
                 "avgPrice": avg_price

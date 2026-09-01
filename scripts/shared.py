@@ -130,69 +130,7 @@ def generate_weekly_dates(
     return dates
 
 
-# ---------------------------------------------------------------------------
-# 基準價格
-# ---------------------------------------------------------------------------
 
-_BASE_PRICES: dict[str, int] = {
-    "TPE-NRT": 13652,
-    "TPE-KIX": 14225,
-    "TPE-FUK": 13719,
-    "TSA-HND": 16440,
-}
-
-
-def get_baseline_prices(
-    holiday_tag: str | None,
-    base_price: int,
-) -> int:
-    """根據假期標籤回傳基準價格的倍率結果。
-
-    Args:
-        holiday_tag: 由 get_holiday_tag 回傳的標籤（可為 None）。
-        base_price: 航線基準票價。
-
-    Returns:
-        套用倍率後的票價。
-    """
-    if holiday_tag is None:
-        return int(base_price * 1.08)
-    if "春節" in holiday_tag:
-        return int(base_price * 2.5 + 3000)
-    if "清明" in holiday_tag or "櫻花滿開" in holiday_tag:
-        return int(base_price * 2.0 + 2000)
-    if "櫻花季初開" in holiday_tag:
-        return int(base_price * 1.4 + 1000)
-    if "賞楓" in holiday_tag:
-        return int(base_price * 1.3 + 1000)
-    if "跨年" in holiday_tag:
-        return int(base_price * 1.25 + 1000)
-    if "228" in holiday_tag:
-        return int(base_price * 1.15)
-    if "中秋" in holiday_tag or "國慶" in holiday_tag:
-        return int(base_price * 1.2)
-    return int(base_price * 1.08)
-
-
-def get_baseline_prices_for_route(
-    route_id: str,
-    week_dates: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """為整條航線的所有週次生成基準價格列表。
-
-    Args:
-        route_id: 航線代碼，如 "TPE-NRT"。
-        week_dates: generate_weekly_dates 的回傳結果。
-
-    Returns:
-        每週附帶 price 欄位的字典列表。
-    """
-    base = _BASE_PRICES.get(route_id, 14000)
-    results: list[dict[str, Any]] = []
-    for item in week_dates:
-        price = get_baseline_prices(item.get("tag"), base)
-        results.append({**item, "price": price})
-    return results
 
 
 # ---------------------------------------------------------------------------

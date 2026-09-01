@@ -8,7 +8,6 @@ from pathlib import Path
 from shared import (
     DATA_DIR,
     generate_weekly_dates,
-    get_baseline_prices_for_route,
     get_latest_snapshot,
 )
 
@@ -149,7 +148,7 @@ def main():
     use_fast_flights = "--no-fast-flights" not in sys.argv
     use_amadeus = "--amadeus" in sys.argv
 
-    print(f"📊 資料來源: {'fast-flights (Google Flights)' if use_fast_flights else 'Amadeus' if use_amadeus else 'Baseline'}")
+    print(f"📊 資料來源: {'fast-flights (Google Flights)' if use_fast_flights else 'Amadeus' if use_amadeus else 'N/A (all sources disabled)'}")
     print(f"📅 查詢 {len(dates)} 週, {len(routes)} 條航線\n")
 
     for route in routes:
@@ -173,10 +172,8 @@ def main():
             today_flights = fetch_raw_flights_amadeus(route, dates)
 
         if today_flights is None:
-            print(f"  📋 使用基準行情資料 (fallback)")
-            today_flights = get_baseline_prices_for_route(route_id, dates)
-            for f in today_flights:
-                f["currency"] = "TWD"
+            print(f"  ⚠️ 所有資料來源皆失敗，設為無資料")
+            today_flights = [{**item, "price": None, "currency": "TWD"} for item in dates]
 
         # 2. Get previous snapshot for comparison
         latest_file_path, latest_snapshot = get_latest_snapshot(route_dir)
@@ -194,7 +191,7 @@ def main():
             "destination": route["destination"],
             "queryDate": today_str,
             "capturedAt": now_str,
-            "dataSource": "fast-flights" if use_fast_flights else "amadeus" if use_amadeus else "baseline",
+            "dataSource": "fast-flights" if use_fast_flights else "amadeus" if use_amadeus else "unknown",
             "weeksCount": len(today_flights),
             "flights": today_flights
         }
