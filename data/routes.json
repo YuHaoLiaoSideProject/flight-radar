@@ -38,5 +38,35 @@
     "airlineName": "中華航空",
     "color": "#8B5CF6",
     "stayDays": 8
+  },
+  {
+    "id": "TPE-KIX-MM",
+    "name": "台北桃園 ⇄ 大阪關西 (樂桃)",
+    "origin": "TPE",
+    "destination": "KIX",
+    "airline": "MM",
+    "airlineName": "樂桃航空",
+    "color": "#EC4899",
+    "stayDays": 8
+  },
+  {
+    "id": "TPE-NRT-MM",
+    "name": "台北桃園 ⇄ 東京成田 (樂桃)",
+    "origin": "TPE",
+    "destination": "NRT",
+    "airline": "MM",
+    "airlineName": "樂桃航空",
+    "color": "#F472B6",
+    "stayDays": 8
+  },
+  {
+    "id": "TPE-OKA-MM",
+    "name": "台北桃園 ⇄ 沖繩 (樂桃)",
+    "origin": "TPE",
+    "destination": "OKA",
+    "airline": "MM",
+    "airlineName": "樂桃航空",
+    "color": "#FB923C",
+    "stayDays": 8
   }
 ]

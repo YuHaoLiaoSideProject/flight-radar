@@ -62,7 +62,7 @@ const filteredData = computed(() => {
             <th scope="col" class="py-3 px-4">出發日期 (週六)</th>
             <th scope="col" class="py-3 px-4">返程日期 (隔週日)</th>
             <th scope="col" class="py-3 px-4">時段 / 節慶標籤</th>
-            <th scope="col" class="py-3 px-4 text-right">華航來回最低價</th>
+            <th scope="col" class="py-3 px-4 text-right">來回最低價</th>
             <th scope="col" class="py-3 px-4 text-center">購票連結</th>
           </tr>
         </thead>

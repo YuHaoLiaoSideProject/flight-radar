@@ -1,0 +1,412 @@
+{
+  "routeId": "TPE-NRT-MM",
+  "airline": "MM",
+  "origin": "TPE",
+  "destination": "NRT",
+  "queryDate": "2026-09-01",
+  "capturedAt": "2026-09-01 20:50:44 (UTC+8)",
+  "dataSource": "fast-flights",
+  "weeksCount": 40,
+  "flights": [
+    {
+      "weekIndex": 1,
+      "departureDate": "2026-09-05",
+      "returnDate": "2026-09-13",
+      "label": "09/05~09/13",
+      "tag": null,
+      "isHoliday": false,
+      "price": 13790,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 2,
+      "departureDate": "2026-09-12",
+      "returnDate": "2026-09-20",
+      "label": "09/12~09/20",
+      "tag": null,
+      "isHoliday": false,
+      "price": 16890,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 3,
+      "departureDate": "2026-09-19",
+      "returnDate": "2026-09-27",
+      "label": "09/19~09/27",
+      "tag": "中秋連假前後",
+      "isHoliday": true,
+      "price": 12197,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 4,
+      "departureDate": "2026-09-26",
+      "returnDate": "2026-10-04",
+      "label": "09/26~10/04",
+      "tag": "中秋連假前後",
+      "isHoliday": true,
+      "price": 14426,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 5,
+      "departureDate": "2026-10-03",
+      "returnDate": "2026-10-11",
+      "label": "10/03~10/11",
+      "tag": "中秋連假前後",
+      "isHoliday": true,
+      "price": 12797,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 6,
+      "departureDate": "2026-10-10",
+      "returnDate": "2026-10-18",
+      "label": "10/10~10/18",
+      "tag": "國慶雙十連假",
+      "isHoliday": true,
+      "price": 9180,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 7,
+      "departureDate": "2026-10-17",
+      "returnDate": "2026-10-25",
+      "label": "10/17~10/25",
+      "tag": null,
+      "isHoliday": false,
+      "price": 9901,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 8,
+      "departureDate": "2026-10-24",
+      "returnDate": "2026-11-01",
+      "label": "10/24~11/01",
+      "tag": null,
+      "isHoliday": false,
+      "price": 14426,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 9,
+      "departureDate": "2026-10-31",
+      "returnDate": "2026-11-08",
+      "label": "10/31~11/08",
+      "tag": "賞楓銀杏旺季",
+      "isHoliday": true,
+      "price": 8023,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 10,
+      "departureDate": "2026-11-07",
+      "returnDate": "2026-11-15",
+      "label": "11/07~11/15",
+      "tag": "賞楓銀杏旺季",
+      "isHoliday": true,
+      "price": 9136,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 11,
+      "departureDate": "2026-11-14",
+      "returnDate": "2026-11-22",
+      "label": "11/14~11/22",
+      "tag": "賞楓銀杏旺季",
+      "isHoliday": true,
+      "price": 10407,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 12,
+      "departureDate": "2026-11-21",
+      "returnDate": "2026-11-29",
+      "label": "11/21~11/29",
+      "tag": "賞楓銀杏旺季",
+      "isHoliday": true,
+      "price": 9936,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 13,
+      "departureDate": "2026-11-28",
+      "returnDate": "2026-12-06",
+      "label": "11/28~12/06",
+      "tag": "賞楓銀杏旺季",
+      "isHoliday": true,
+      "price": 11326,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 14,
+      "departureDate": "2026-12-05",
+      "returnDate": "2026-12-13",
+      "label": "12/05~12/13",
+      "tag": null,
+      "isHoliday": false,
+      "price": 8736,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 15,
+      "departureDate": "2026-12-12",
+      "returnDate": "2026-12-20",
+      "label": "12/12~12/20",
+      "tag": null,
+      "isHoliday": false,
+      "price": 10807,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 16,
+      "departureDate": "2026-12-19",
+      "returnDate": "2026-12-27",
+      "label": "12/19~12/27",
+      "tag": "跨年元旦假期",
+      "isHoliday": true,
+      "price": 16763,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 17,
+      "departureDate": "2026-12-26",
+      "returnDate": "2027-01-03",
+      "label": "12/26~01/03",
+      "tag": "跨年元旦假期",
+      "isHoliday": true,
+      "price": 19385,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 18,
+      "departureDate": "2027-01-02",
+      "returnDate": "2027-01-10",
+      "label": "01/02~01/10",
+      "tag": null,
+      "isHoliday": false,
+      "price": 16062,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 19,
+      "departureDate": "2027-01-09",
+      "returnDate": "2027-01-17",
+      "label": "01/09~01/17",
+      "tag": null,
+      "isHoliday": false,
+      "price": 18928,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 20,
+      "departureDate": "2027-01-16",
+      "returnDate": "2027-01-24",
+      "label": "01/16~01/24",
+      "tag": null,
+      "isHoliday": false,
+      "price": 20116,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 21,
+      "departureDate": "2027-01-23",
+      "returnDate": "2027-01-31",
+      "label": "01/23~01/31",
+      "tag": "🧨 春節除夕過年",
+      "isHoliday": true,
+      "price": 23085,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 22,
+      "departureDate": "2027-01-30",
+      "returnDate": "2027-02-07",
+      "label": "01/30~02/07",
+      "tag": "🧨 春節除夕過年",
+      "isHoliday": true,
+      "price": 37063,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 23,
+      "departureDate": "2027-02-06",
+      "returnDate": "2027-02-14",
+      "label": "02/06~02/14",
+      "tag": "🧨 春節除夕過年",
+      "isHoliday": true,
+      "price": 57390,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 24,
+      "departureDate": "2027-02-13",
+      "returnDate": "2027-02-21",
+      "label": "02/13~02/21",
+      "tag": null,
+      "isHoliday": false,
+      "price": 35522,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 25,
+      "departureDate": "2027-02-20",
+      "returnDate": "2027-02-28",
+      "label": "02/20~02/28",
+      "tag": "228 連假",
+      "isHoliday": true,
+      "price": 21653,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 26,
+      "departureDate": "2027-02-27",
+      "returnDate": "2027-03-07",
+      "label": "02/27~03/07",
+      "tag": "228 連假",
+      "isHoliday": true,
+      "price": 14322,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 27,
+      "departureDate": "2027-03-06",
+      "returnDate": "2027-03-14",
+      "label": "03/06~03/14",
+      "tag": null,
+      "isHoliday": false,
+      "price": 13128,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 28,
+      "departureDate": "2027-03-13",
+      "returnDate": "2027-03-21",
+      "label": "03/13~03/21",
+      "tag": "🌸 櫻花季初開",
+      "isHoliday": true,
+      "price": 10375,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 29,
+      "departureDate": "2027-03-20",
+      "returnDate": "2027-03-28",
+      "label": "03/20~03/28",
+      "tag": "🌸 櫻花季初開",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 30,
+      "departureDate": "2027-03-27",
+      "returnDate": "2027-04-04",
+      "label": "03/27~04/04",
+      "tag": "🌸 櫻花季初開",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 31,
+      "departureDate": "2027-04-03",
+      "returnDate": "2027-04-11",
+      "label": "04/03~04/11",
+      "tag": "🌸 清明連假/櫻花滿開",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 32,
+      "departureDate": "2027-04-10",
+      "returnDate": "2027-04-18",
+      "label": "04/10~04/18",
+      "tag": "🌸 清明連假/櫻花滿開",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 33,
+      "departureDate": "2027-04-17",
+      "returnDate": "2027-04-25",
+      "label": "04/17~04/25",
+      "tag": null,
+      "isHoliday": false,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 34,
+      "departureDate": "2027-04-24",
+      "returnDate": "2027-05-02",
+      "label": "04/24~05/02",
+      "tag": "五一勞動節/日本黃金週",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 35,
+      "departureDate": "2027-05-01",
+      "returnDate": "2027-05-09",
+      "label": "05/01~05/09",
+      "tag": "五一勞動節/日本黃金週",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 36,
+      "departureDate": "2027-05-08",
+      "returnDate": "2027-05-16",
+      "label": "05/08~05/16",
+      "tag": "五一勞動節/日本黃金週",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 37,
+      "departureDate": "2027-05-15",
+      "returnDate": "2027-05-23",
+      "label": "05/15~05/23",
+      "tag": null,
+      "isHoliday": false,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 38,
+      "departureDate": "2027-05-22",
+      "returnDate": "2027-05-30",
+      "label": "05/22~05/30",
+      "tag": null,
+      "isHoliday": false,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 39,
+      "departureDate": "2027-05-29",
+      "returnDate": "2027-06-06",
+      "label": "05/29~06/06",
+      "tag": "端午節前後",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    },
+    {
+      "weekIndex": 40,
+      "departureDate": "2027-06-05",
+      "returnDate": "2027-06-13",
+      "label": "06/05~06/13",
+      "tag": "端午節前後",
+      "isHoliday": true,
+      "price": null,
+      "currency": "TWD"
+    }
+  ]
+}
