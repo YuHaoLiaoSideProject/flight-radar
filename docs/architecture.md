@@ -9,11 +9,9 @@
 ```mermaid
 graph LR
     GF[Google Flights] -->|HTTP| FRD[fetch_raw_data.py]
-    AMA[Amadeus API] -->|REST| FF[fetch_flights.py]
+    AMA[Amadeus API] -->|REST| FRD
     RC[routes_config.json] --> FRD
-    RC --> FF
     SH[shared.py] -.->|共用函式| FRD
-    SH -.->|共用函式| FF
 ```
 
 ### 💾 資料層
@@ -112,7 +110,6 @@ graph LR
 
     subgraph Fetch["抓取腳本"]
         FRD["fetch_raw_data.py<br/>━━━━━━━━━━<br/>• 產生每日快照<br/>• 去重比對<br/>• 輸出: data/raw/"]
-        FF["fetch_flights.py<br/>━━━━━━━━━━<br/>• 即時查詢<br/>• 直接輸出 API<br/>• 輸出: public/data/"]
     end
 
     subgraph Build["建構腳本"]
@@ -120,9 +117,7 @@ graph LR
     end
 
     GEN --> FRD
-    GEN --> FF
     HOL --> FRD
-    HOL --> FF
     SNAP --> FRD
     ALLSNAP --> BA
 ```
@@ -171,7 +166,6 @@ flight-radar/
 │   ├── shared.py                # 共用工具（日期、假期、價格）
 │   ├── routes_config.json       # 航線定義（4 條航線）
 │   ├── fetch_raw_data.py        # 原始快照抓取
-│   ├── fetch_flights.py         # 即時票價查詢
 │   └── build_api.py             # API 建構器
 │
 ├── 📂 data/                     # 原始資料（不公開）

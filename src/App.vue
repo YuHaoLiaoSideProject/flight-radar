@@ -47,8 +47,8 @@ async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
   if (!routeSummary) return null
 
   try {
-    // 載入 meta.json
-    const metaPath = routeSummary.path.replace('/index.json', '/meta.json')
+    // 載入 meta.json（path 已指向 meta.json，直接使用）
+    const metaPath = routeSummary.path
     const res = await fetch(`./${metaPath}`)
     if (!res.ok) throw new Error(`無法讀取航線 meta: ${metaPath}`)
     const meta: RouteMeta = await res.json()
@@ -77,8 +77,7 @@ async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
 
 async function loadAllWeeks(routeId: string) {
   const detail = routeDetailsMap.value[routeId]
-  if (!detail || detail.isLoadingWeeks || detail.loadedWeeks >= detail.totalWeeks) return
-  if (!detail.topDeals || detail.topDeals.length === 0) return
+  if (!detail || detail.isLoadingWeeks || detail.loadedWeeks >= detail.totalWeeks || detail.totalWeeks <= 0) return
 
   const routeSummary = rootIndex.value?.routes.find(r => r.id === routeId)
   if (!routeSummary) return
@@ -90,10 +89,20 @@ async function loadAllWeeks(routeId: string) {
   const weeksBasePath = routeSummary.path.replace('/meta.json', '') + '/weeks'
 
   const CONCURRENT = 4
-  const startDate = new Date(detail.topDeals[0].departureDate)
+
+  // 從 latestQueryDate 重建第一個週六作為錨點（與 build_api.py 的 generate_weekly_dates 一致）
+  const queryDate = detail.latestQueryDate
+  if (!queryDate) return
+  const qd = new Date(queryDate + 'T00:00:00')
+  // find next Saturday (weekday 5); if already Saturday, take next Saturday
+  let daysToSat = (5 - qd.getDay()) % 7
+  if (daysToSat === 0) daysToSat = 7
+  const firstSaturday = new Date(qd)
+  firstSaturday.setDate(firstSaturday.getDate() + daysToSat)
+
   const weekDates: string[] = []
   for (let i = 0; i < detail.totalWeeks; i++) {
-    const d = new Date(startDate)
+    const d = new Date(firstSaturday)
     d.setDate(d.getDate() + i * 7)
     weekDates.push(d.toISOString().split('T')[0])
   }

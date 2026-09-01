@@ -7,7 +7,7 @@ export interface WeekItem {
   isHoliday: boolean
   price: number | null
   previousPrice: number | null
-  priceDiff: number
+  priceDiff: number | null
   history: { queryDate: string; price: number }[]
 }
 
@@ -25,10 +25,15 @@ export interface RouteSummary {
   name: string
   origin: string
   destination: string
+  airline: string
+  airlineName: string
   color: string
   minPrice: number
   path: string
 }
+
+// Alias kept for backward compat if needed
+export type RouteInfo = RouteSummary
 
 export interface AirlineSummary {
   code: string

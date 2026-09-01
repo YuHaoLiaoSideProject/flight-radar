@@ -69,7 +69,6 @@ flight-radar/
 │   ├── shared.py             # 共用工具（日期、假期、價格）
 │   ├── routes_config.json    # 航線定義
 │   ├── fetch_raw_data.py     # 原始快照抓取器
-│   ├── fetch_flights.py      # 即時票價查詢器（已棄用）
 │   └── build_api.py          # API 建構器
 ├── data/                     # 原始資料（不公開）
 │   └── raw/{airline}/{route}/YYYY-MM-DD.json

@@ -1,6 +1,15 @@
+from __future__ import annotations
+
 import datetime
 import json
 import os
+import sys
+from pathlib import Path
+
+# 確保 scripts/ 在 import path 中
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from shared import (
     DATA_DIR,

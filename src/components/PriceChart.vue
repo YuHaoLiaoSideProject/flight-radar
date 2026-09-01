@@ -41,44 +41,47 @@ const activeRoutes = computed(() => {
   return props.routes.filter(r => r.id === props.selectedRouteId)
 })
 
+function buildDatasets() {
+  return activeRoutes.value.map(route => ({
+    label: route.name,
+    data: route.weeklyData.map(w => w.price),
+    borderColor: route.color,
+    backgroundColor: route.color,
+    borderWidth: 2.5,
+    tension: 0.25,
+    pointRadius: (ctx: ScriptableContext<'line'>) => {
+      if (ctx.dataIndex === null || ctx.dataIndex === undefined) return 2.5
+      const item = route.weeklyData[ctx.dataIndex]
+      return item?.isHoliday ? 5 : 2.5
+    },
+    pointHoverRadius: 7,
+    pointBackgroundColor: (ctx: ScriptableContext<'line'>) => {
+      if (ctx.dataIndex === null || ctx.dataIndex === undefined) return route.color
+      const item = route.weeklyData[ctx.dataIndex]
+      return item?.isHoliday ? '#EF4444' : route.color
+    }
+  }))
+}
+
 function renderChart() {
   if (!chartCanvas.value || !props.routes.length) return
 
-  if (chartInstance) {
-    chartInstance.destroy()
-  }
-
   const baseRoute = props.routes[0]
   const labels = baseRoute.weeklyData.map(w => w.label)
+  const datasets = buildDatasets()
 
-  const datasets = activeRoutes.value.map(route => {
-    return {
-      label: route.name,
-      data: route.weeklyData.map(w => w.price),
-      borderColor: route.color,
-      backgroundColor: route.color,
-      borderWidth: 2.5,
-      tension: 0.25,
-      pointRadius: (ctx: ScriptableContext<'line'>) => {
-        if (ctx.dataIndex == null) return 2.5
-        const item = route.weeklyData[ctx.dataIndex]
-        return item?.isHoliday ? 5 : 2.5
-      },
-      pointHoverRadius: 7,
-      pointBackgroundColor: (ctx: ScriptableContext<'line'>) => {
-        if (ctx.dataIndex == null) return route.color
-        const item = route.weeklyData[ctx.dataIndex]
-        return item?.isHoliday ? '#EF4444' : route.color
-      }
-    }
-  })
+  if (chartInstance) {
+    // Update existing chart in-place to avoid destroy/recreate overhead
+    chartInstance.data.labels = labels
+    chartInstance.data.datasets = datasets as typeof chartInstance.data.datasets
+    chartInstance.options.plugins!.legend!.display = props.compareAll
+    chartInstance.update('none')
+    return
+  }
 
   chartInstance = new Chart(chartCanvas.value, {
     type: 'line',
-    data: {
-      labels,
-      datasets
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -111,8 +114,8 @@ function renderChart() {
               return `第 ${idx + 1} 週：${item.departureDate} ~ ${item.returnDate}${item.tag ? ` (${item.tag})` : ''}`
             },
             label: (item) => {
-              const val = item.raw as number
-              return `  ${item.dataset.label}: NT$ ${val?.toLocaleString()}`
+              const val = typeof item.raw === 'number' ? item.raw : null
+              return `  ${item.dataset.label}: NT$ ${val !== null ? val.toLocaleString() : 'N/A'}`
             }
           }
         }

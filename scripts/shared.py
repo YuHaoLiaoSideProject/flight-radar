@@ -1,6 +1,6 @@
 """
 scripts/shared.py — 共用工具函式與常數
-供 fetch_raw_data.py、fetch_flights.py、build_api.py 使用
+供 fetch_raw_data.py、build_api.py 使用
 """
 
 from __future__ import annotations
@@ -8,18 +8,26 @@ from __future__ import annotations
 import glob
 import json
 import logging
+import os
 import re
+import sys
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# 確保 scripts/ 目錄在 sys.path 中，使 import shared 能正常運作
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
 # ---------------------------------------------------------------------------
 # 路徑常數
 # ---------------------------------------------------------------------------
 
-CONFIG_PATH: Path = Path(__file__).parent / "routes_config.json"
+CONFIG_PATH: Path = Path(__file__).parent.parent / "data" / "routes.json"
 DATA_DIR: Path = Path(__file__).parent.parent / "data"
 PUBLIC_DIR: Path = Path(__file__).parent.parent / "public"
 
@@ -134,6 +142,151 @@ def generate_weekly_dates(
 
 
 # ---------------------------------------------------------------------------
+# 航班資料抓取（共用）
+# ---------------------------------------------------------------------------
+
+
+def fetch_flights_fast_flights(
+    route: dict[str, Any],
+    dates: list[dict[str, Any]],
+    script_name: str = "shared",
+) -> list[dict[str, Any]] | None:
+    """使用 fast-flights (Google Flights scraper) 抓取原始票價。
+
+    Args:
+        route: 航線設定 dict，需含 origin, destination, airline。
+        dates: 日期列表（含 departureDate, returnDate）。
+        script_name: 呼叫者名稱，用於日誌標示。
+
+    Returns:
+        含 price 欄位的 flight dict 列表，或 None（fast-flights 未安裝時）。
+    """
+    try:
+        from fast_flights import FlightQuery, Passengers, create_query, get_flights  # type: ignore[import-untyped]
+    except ImportError:
+        print(f"  ⚠️ [{script_name}] fast-flights 未安裝，跳過")
+        return None
+
+    origin = route["origin"]
+    destination = route["destination"]
+    airline_code = route["airline"]
+
+    flights: list[dict[str, Any]] = []
+    errors = 0
+    max_errors = 5
+
+    for i, item in enumerate(dates):
+        dep_date = item["departureDate"]
+        ret_date = item["returnDate"]
+        try:
+            query = create_query(
+                flights=[
+                    FlightQuery(date=dep_date, from_airport=origin, to_airport=destination, airlines=[airline_code]),
+                    FlightQuery(date=ret_date, from_airport=destination, to_airport=origin, airlines=[airline_code]),
+                ],
+                trip="round-trip",
+                passengers=Passengers(adults=1),
+                currency="TWD",
+                language="zh-TW",
+            )
+
+            results = get_flights(query)
+
+            price = None
+            for flight in results:
+                flight_airlines = [a.upper() for a in flight.airlines]
+                if any(airline_code.upper() in a for a in flight_airlines):
+                    price = flight.price
+                    break
+
+            flights.append({**item, "price": int(price) if price else None, "currency": "TWD"})
+
+            if price is not None:
+                errors = 0
+                print(f"  [{i+1}/{len(dates)}] {dep_date} → {ret_date}: ✅ {price} TWD")
+            else:
+                print(f"  [{i+1}/{len(dates)}] {dep_date} → {ret_date}: ⚠️ N/A")
+
+        except Exception as e:
+            print(f"  [{i+1}/{len(dates)}] {dep_date} → {ret_date}: ❌ Error: {e}")
+            flights.append({**item, "price": None, "currency": "TWD"})
+            errors += 1
+
+            if errors >= max_errors:
+                print(f"  ⚠️ 連續 {max_errors} 次錯誤，中斷此航線查詢")
+                for remaining in dates[i + 1 :]:
+                    flights.append({**remaining, "price": None, "currency": "TWD"})
+                break
+
+        # Rate limiting
+        if i < len(dates) - 1:
+            time.sleep(1.5)
+
+    return flights
+
+
+def fetch_flights_amadeus(
+    route: dict[str, Any],
+    dates: list[dict[str, Any]],
+    script_name: str = "shared",
+) -> list[dict[str, Any]] | None:
+    """Fallback: 使用 Amadeus API 抓取票價（需環境變數）。
+
+    Returns:
+        含 price 欄位的 flight dict 列表，或 None（無憑證或初始化失敗時）。
+    """
+    amadeus_id = os.getenv("AMADEUS_CLIENT_ID")
+    amadeus_secret = os.getenv("AMADEUS_CLIENT_SECRET")
+
+    if not amadeus_id or not amadeus_secret:
+        return None
+
+    try:
+        from amadeus import Client  # type: ignore[import-untyped]
+        amadeus_client = Client(client_id=amadeus_id, client_secret=amadeus_secret)
+        print(f"  ✅ [{script_name}] 使用 Amadeus API")
+    except Exception as e:
+        print(f"  ⚠️ [{script_name}] Amadeus 初始化失敗: {e}")
+        return None
+
+    flights: list[dict[str, Any]] = []
+    for item in dates:
+        try:
+            res = amadeus_client.shopping.flight_offers_search.get(
+                originLocationCode=route["origin"],
+                destinationLocationCode=route["destination"],
+                departureDate=item["departureDate"],
+                returnDate=item["returnDate"],
+                adults=1,
+                includedAirlineCodes=route["airline"],
+                currencyCode="TWD",
+                max=3,
+            )
+            price = float(res.data[0]["price"]["total"]) if res.data else None
+            flights.append({**item, "price": int(price) if price else None, "currency": "TWD"})
+            time.sleep(0.3)
+        except Exception:
+            flights.append({**item, "price": None, "currency": "TWD"})
+
+    return flights
+
+
+def is_price_data_identical(
+    new_flights: list[dict[str, Any]],
+    previous_flights: list[dict[str, Any]],
+) -> bool:
+    """Compare two 40-week snapshots to see if all prices are identical."""
+    if not previous_flights or len(new_flights) != len(previous_flights):
+        return False
+    prev_map = {f"{x['departureDate']}_{x['returnDate']}": x.get("price") for x in previous_flights}
+    for item in new_flights:
+        k = f"{item['departureDate']}_{item['returnDate']}"
+        if prev_map.get(k) != item.get("price"):
+            return False
+    return True
+
+
+# ---------------------------------------------------------------------------
 # 快照檔案工具
 # ---------------------------------------------------------------------------
 
@@ -142,8 +295,6 @@ _DATE_FILENAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\.json$")
 
 def get_latest_snapshot(route_dir: str | Path) -> tuple[str | None, dict | None]:
     """取得指定航線目錄下最新的日期快照。
-
-    只匹配 YYYY-MM-DD.json 格式的檔名。
 
     Args:
         route_dir: 快照目錄路徑。

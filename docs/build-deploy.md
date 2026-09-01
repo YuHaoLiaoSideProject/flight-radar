@@ -80,9 +80,6 @@ flowchart LR
 # fetch_raw_data.py
 python scripts/fetch_raw_data.py                  # 使用 fast-flights（預設）
 python scripts/fetch_raw_data.py --amadeus         # 使用 Amadeus API
-
-# fetch_flights.py (已棄用，改用 fetch_raw_data.py)
-python scripts/fetch_flights.py                    # 直接輸出到 public/data/
 ```
 
 ---

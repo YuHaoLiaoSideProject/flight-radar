@@ -197,3 +197,5 @@ flowchart TB
 ---
 
 > 本文件由技術文件工程師自動產生，基於 Code Review 執行過程記錄。
+>
+> 📄 完整審查報告請參閱：[CODE-REVIEW-REPORT.md](../CODE-REVIEW-REPORT.md)

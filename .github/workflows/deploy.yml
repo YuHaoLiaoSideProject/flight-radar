@@ -42,6 +42,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install requests beautifulsoup4
+          pip install fast-flights
 
       - name: Run crawler
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_crawler != 'true' }}
