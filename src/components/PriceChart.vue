@@ -12,6 +12,7 @@ import {
   Legend
 } from 'chart.js'
 import type { RouteDetail } from '../types/flight'
+import type { ScriptableContext } from 'chart.js'
 
 Chart.register(
   LineController,
@@ -58,12 +59,14 @@ function renderChart() {
       backgroundColor: route.color,
       borderWidth: 2.5,
       tension: 0.25,
-      pointRadius: (ctx: any) => {
+      pointRadius: (ctx: ScriptableContext<'line'>) => {
+        if (ctx.dataIndex == null) return 2.5
         const item = route.weeklyData[ctx.dataIndex]
         return item?.isHoliday ? 5 : 2.5
       },
       pointHoverRadius: 7,
-      pointBackgroundColor: (ctx: any) => {
+      pointBackgroundColor: (ctx: ScriptableContext<'line'>) => {
+        if (ctx.dataIndex == null) return route.color
         const item = route.weeklyData[ctx.dataIndex]
         return item?.isHoliday ? '#EF4444' : route.color
       }
@@ -151,13 +154,11 @@ watch([() => props.selectedRouteId, () => props.compareAll], () => {
 })
 
 // 用 deep watch 監聽 weeklyData 內容變化（載入更多週時觸發）
-watch(
-  () => props.routes.map(r => r.weeklyData.length),
-  () => {
-    renderChart()
-  },
-  { deep: true }
-)
+// 監聽每條航線的 weeklyData 長度變化（載入更多週時觸發）
+const weeklyDataLengths = computed(() => props.routes.map(r => r.weeklyData.length).join(','))
+watch(weeklyDataLengths, () => {
+  renderChart()
+})
 </script>
 
 <template>
@@ -180,7 +181,7 @@ watch(
     </div>
 
     <div class="relative h-80 sm:h-96 w-full">
-      <canvas ref="chartCanvas"></canvas>
+      <canvas ref="chartCanvas" role="img" :aria-label="'票價波動折線圖 - ' + (compareAll ? '全航線對比' : selectedRouteId)"></canvas>
     </div>
   </div>
 </template>

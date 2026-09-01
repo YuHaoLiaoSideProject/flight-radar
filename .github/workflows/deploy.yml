@@ -45,9 +45,7 @@ jobs:
 
       - name: Run crawler
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_crawler != 'true' }}
-        run: |
-          python scripts/fetch_flights.py
-          python scripts/fetch_raw_data.py
+        run: python scripts/fetch_raw_data.py
 
       - name: Build API from raw data
         run: python scripts/build_api.py

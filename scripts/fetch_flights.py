@@ -2,129 +2,157 @@ import datetime
 import json
 import os
 import time
+import sys
 
-def get_holiday_tag(dep_date_str):
-    dep = datetime.datetime.strptime(dep_date_str, "%Y-%m-%d").date()
-    if dep >= datetime.date(2026, 9, 26) and dep <= datetime.date(2026, 10, 4):
-        return "中秋連假前後"
-    elif dep >= datetime.date(2026, 10, 9) and dep <= datetime.date(2026, 10, 11):
-        return "國慶雙十連假"
-    elif dep >= datetime.date(2026, 11, 7) and dep <= datetime.date(2026, 11, 28):
-        return "賞楓銀杏旺季"
-    elif dep >= datetime.date(2026, 12, 25) and dep <= datetime.date(2027, 1, 3):
-        return "跨年元旦假期"
-    elif dep >= datetime.date(2027, 2, 5) and dep <= datetime.date(2027, 2, 14):
-        return "🧨 春節除夕過年"
-    elif dep >= datetime.date(2027, 2, 26) and dep <= datetime.date(2027, 3, 1):
-        return "228 連假"
-    elif dep >= datetime.date(2027, 3, 20) and dep <= datetime.date(2027, 3, 28):
-        return "🌸 櫻花季初開"
-    elif dep >= datetime.date(2027, 4, 1) and dep <= datetime.date(2027, 4, 11):
-        return "🌸 清明連假/櫻花滿開"
-    elif dep >= datetime.date(2027, 4, 30) and dep <= datetime.date(2027, 5, 9):
-        return "五一勞動節/日本黃金週"
-    elif dep >= datetime.date(2027, 6, 4) and dep <= datetime.date(2027, 6, 13):
-        return "端午節前後"
-    return None
+from shared import (
+    CONFIG_PATH,
+    PUBLIC_DIR,
+    generate_weekly_dates,
+    get_baseline_prices_for_route,
+)
 
-def generate_weekly_dates(weeks_ahead=40, trip_days=8):
-    today = datetime.date.today()
-    days_until_saturday = (5 - today.weekday()) % 7
-    if days_until_saturday == 0:
-        days_until_saturday = 7
-    first_saturday = today + datetime.timedelta(days=days_until_saturday)
 
-    dates = []
-    for i in range(weeks_ahead):
-        dep = first_saturday + datetime.timedelta(weeks=i)
-        ret = dep + datetime.timedelta(days=trip_days)
-        dep_str = dep.strftime("%Y-%m-%d")
-        ret_str = ret.strftime("%Y-%m-%d")
-        tag = get_holiday_tag(dep_str)
-        dates.append({
-            "weekIndex": i + 1,
-            "departureDate": dep_str,
-            "returnDate": ret_str,
-            "label": f"{dep.strftime('%m/%d')}~{ret.strftime('%m/%d')}",
-            "tag": tag,
-            "isHoliday": tag is not None
-        })
-    return dates
+def fetch_flights_fast_flights(route, week_dates):
+    """Use fast-flights (Google Flights scraper) to get real prices"""
+    try:
+        from fast_flights import FlightQuery, Passengers, create_query, get_flights
+    except ImportError:
+        print("  ⚠️ fast-flights 未安裝，跳過")
+        return None
 
-def get_baseline_prices(route_id, week_dates):
-    base_map = {
-        "TPE-NRT": 13652,
-        "TPE-KIX": 14225,
-        "TPE-FUK": 13719,
-        "TSA-HND": 16440
-    }
-    base = base_map.get(route_id, 14000)
-    weekly_records = []
-    
+    origin = route["origin"]
+    destination = route["destination"]
+    airline_code = route["airline"]
+    route_id = route["id"]
+
+    weekly_data = []
+    errors = 0
+    max_errors = 5  # Allow up to 5 consecutive errors before aborting route
+
+    for i, item in enumerate(week_dates):
+        dep_date = item["departureDate"]
+        ret_date = item["returnDate"]
+        try:
+            # Create round-trip query with airline filter
+            query = create_query(
+                flights=[
+                    FlightQuery(date=dep_date, from_airport=origin, to_airport=destination, airlines=[airline_code]),
+                    FlightQuery(date=ret_date, from_airport=destination, to_airport=origin, airlines=[airline_code])
+                ],
+                trip="round-trip",
+                passengers=Passengers(adults=1),
+                currency="TWD",
+                language="zh-TW"
+            )
+
+            results = get_flights(query)
+
+            # Find cheapest flight for this airline only
+            price = None
+            for flight in results:
+                flight_airlines = [a.upper() for a in flight.airlines]
+                # Check if this flight matches our target airline
+                if any(airline_code.upper() in a for a in flight_airlines):
+                    price = flight.price
+                    break
+
+            # No fallback — leave as null if CI not found
+            if price is not None:
+                weekly_data.append({**item, "price": int(price)})
+                errors = 0  # Reset consecutive error counter
+                status = "✅"
+            else:
+                weekly_data.append({**item, "price": None})
+                status = "⚠️"
+
+            print(f"  [{i+1}/{len(week_dates)}] {dep_date} → {ret_date}: {status} {price if price else 'N/A'} TWD")
+
+        except Exception as e:
+            print(f"  [{i+1}/{len(week_dates)}] {dep_date} → {ret_date}: ❌ Error: {e}")
+            weekly_data.append({**item, "price": None})
+            errors += 1
+
+            if errors >= max_errors:
+                print(f"  ⚠️ 連續 {max_errors} 次錯誤，中斷此航線查詢")
+                # Fill remaining weeks with None
+                for remaining in week_dates[i+1:]:
+                    weekly_data.append({**remaining, "price": None})
+                break
+
+        # Rate limiting: 1.5 seconds between requests
+        if i < len(week_dates) - 1:
+            time.sleep(1.5)
+
+    return weekly_data
+
+
+def fetch_flights_amadeus(route, week_dates):
+    """Fallback: use Amadeus API if credentials available"""
+    amadeus_id = os.getenv("AMADEUS_CLIENT_ID")
+    amadeus_secret = os.getenv("AMADEUS_CLIENT_SECRET")
+
+    if not amadeus_id or not amadeus_secret:
+        return None
+
+    try:
+        from amadeus import Client
+        amadeus_client = Client(client_id=amadeus_id, client_secret=amadeus_secret)
+        print("  ✅ 使用 Amadeus API")
+    except Exception as e:
+        print(f"  ⚠️ Amadeus 初始化失敗: {e}")
+        return None
+
+    weekly_data = []
     for item in week_dates:
-        dep = item["departureDate"]
-        tag = item["tag"]
-        price = base
-        
-        if "春節" in (tag or ""):
-            price = int(base * 2.5 + 3000)
-        elif "清明" in (tag or "") or "櫻花滿開" in (tag or ""):
-            price = int(base * 2.0 + 2000)
-        elif "櫻花季初開" in (tag or ""):
-            price = int(base * 1.4 + 1000)
-        elif "賞楓" in (tag or ""):
-            price = int(base * 1.3 + (2000 if route_id in ["TPE-KIX", "TPE-FUK"] else 1000))
-        elif "跨年" in (tag or ""):
-            price = int(base * 1.25 + 1000)
-        elif "228" in (tag or ""):
-            price = int(base * 1.15)
-        elif "中秋" in (tag or "") or "國慶" in (tag or ""):
-            price = int(base * 1.2)
-        elif "2027-05" in dep and route_id == "TPE-FUK":
-            price = base
-        elif "2027-01" in dep or "2026-09" in dep:
-            price = base
-        else:
-            price = int(base * 1.08)
+        try:
+            res = amadeus_client.shopping.flight_offers_search.get(
+                originLocationCode=route["origin"],
+                destinationLocationCode=route["destination"],
+                departureDate=item["departureDate"],
+                returnDate=item["returnDate"],
+                adults=1,
+                includedAirlineCodes=route["airline"],
+                currencyCode="TWD",
+                max=3
+            )
+            if res.data:
+                price = float(res.data[0]['price']['total'])
+                weekly_data.append({**item, "price": int(price)})
+            else:
+                weekly_data.append({**item, "price": None})
+            time.sleep(0.3)
+        except Exception as err:
+            print(f"  API Error for {item['departureDate']}: {err}")
+            weekly_data.append({**item, "price": None})
 
-        weekly_records.append({
-            **item,
-            "price": price
-        })
-    return weekly_records
+    return weekly_data
+
 
 def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, "routes_config.json")
-    base_data_dir = os.path.join(script_dir, "../public/data")
+    base_data_dir = PUBLIC_DIR / "data"
     os.makedirs(base_data_dir, exist_ok=True)
 
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         routes_config = json.load(f)
 
     week_dates = generate_weekly_dates(weeks_ahead=40, trip_days=8)
     now_str = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S (UTC+8)")
 
-    # 檢查是否有 Amadeus API 憑證
-    amadeus_id = os.getenv("AMADEUS_CLIENT_ID")
-    amadeus_secret = os.getenv("AMADEUS_CLIENT_SECRET")
-    amadeus_client = None
-    if amadeus_id and amadeus_secret:
-        try:
-            from amadeus import Client
-            amadeus_client = Client(client_id=amadeus_id, client_secret=amadeus_secret)
-            print("✅ 成功初始化 Amadeus API")
-        except Exception as e:
-            print(f"⚠️ 初始化 Amadeus 失敗: {e}，將使用基準行情資料")
+    # Determine data source priority: fast-flights > Amadeus > baseline
+    use_fast_flights = "--no-fast-flights" not in sys.argv
+    use_amadeus = "--amadeus" in sys.argv
 
-    # 按航空公司分組
+    print(f"📊 資料來源: {'fast-flights (Google Flights)' if use_fast_flights else 'Amadeus' if use_amadeus else 'Baseline'}")
+    print(f"📅 查詢 {len(week_dates)} 週, {len(routes_config)} 條航線\n")
+
+    # Group by airline
     airlines_map = {}
 
     for route in routes_config:
         airline_code = route["airline"]
         airline_name = route.get("airlineName", airline_code)
         route_id = route["id"]
-        
+
         if airline_code not in airlines_map:
             airlines_map[airline_code] = {
                 "code": airline_code,
@@ -133,32 +161,22 @@ def main():
             }
 
         print(f"處理 [{airline_code}] 航線: {route['name']} ({route_id})...")
-        
-        weekly_data = []
-        if amadeus_client:
-            for item in week_dates:
-                try:
-                    res = amadeus_client.shopping.flight_offers_search.get(
-                        originLocationCode=route["origin"],
-                        destinationLocationCode=route["destination"],
-                        departureDate=item["departureDate"],
-                        returnDate=item["returnDate"],
-                        adults=1,
-                        includedAirlineCodes=route["airline"],
-                        currencyCode="TWD",
-                        max=3
-                    )
-                    if res.data:
-                        price = float(res.data[0]['price']['total'])
-                        weekly_data.append({**item, "price": int(price)})
-                    else:
-                        weekly_data.append({**item, "price": None})
-                    time.sleep(0.3)
-                except Exception as err:
-                    print(f"API Error for {item['departureDate']}: {err}")
-                    weekly_data.append({**item, "price": None})
-        else:
-            weekly_data = get_baseline_prices(route_id, week_dates)
+
+        weekly_data = None
+
+        # Try fast-flights first
+        if use_fast_flights and not use_amadeus:
+            print(f"  📡 使用 fast-flights 查詢 Google Flights...")
+            weekly_data = fetch_flights_fast_flights(route, week_dates)
+
+        # Fallback to Amadeus
+        if weekly_data is None and use_amadeus:
+            weekly_data = fetch_flights_amadeus(route, week_dates)
+
+        # Final fallback: baseline prices
+        if weekly_data is None:
+            print(f"  📋 使用基準行情資料 (fallback)")
+            weekly_data = get_baseline_prices_for_route(route_id, week_dates)
 
         valid_prices = [x["price"] for x in weekly_data if x["price"] is not None]
         min_price = min(valid_prices) if valid_prices else 0
@@ -166,7 +184,7 @@ def main():
         sorted_by_price = sorted([x for x in weekly_data if x["price"] is not None], key=lambda x: x["price"])
         top_deals = sorted_by_price[:5]
 
-        # 航線專屬目錄: public/data/airlines/{airline_code}/{route_id}/
+        # Output path: public/data/airlines/{airline_code}/{route_id}/
         route_dir = os.path.join(base_data_dir, "airlines", airline_code, route_id)
         os.makedirs(route_dir, exist_ok=True)
         route_index_file = os.path.join(route_dir, "index.json")
@@ -182,6 +200,7 @@ def main():
             "stayDays": route.get("stayDays", 8),
             "updatedAt": now_str,
             "weeksCount": len(weekly_data),
+            "dataSource": "fast-flights" if (use_fast_flights and weekly_data and weekly_data[0].get("price") is not None and "--no-fast-flights" not in sys.argv) else "amadeus" if use_amadeus else "baseline",
             "stats": {
                 "minPrice": min_price,
                 "avgPrice": avg_price
@@ -193,7 +212,7 @@ def main():
         with open(route_index_file, "w", encoding="utf-8") as rf:
             json.dump(route_payload, rf, ensure_ascii=False, indent=2)
 
-        # 登記在該航空清單中
+        # Register in airline list
         relative_route_path = f"data/airlines/{airline_code}/{route_id}/index.json"
         airlines_map[airline_code]["routes"].append({
             "id": route["id"],
@@ -205,7 +224,9 @@ def main():
             "path": relative_route_path
         })
 
-    # 產出各航空公司的 index.json: public/data/airlines/{airline_code}/index.json
+        print(f"  ✅ 完成 ({len(valid_prices)}/{len(weekly_data)} 週有價格)\n")
+
+    # Output airline indices
     root_airlines_index = []
     root_all_routes = []
 
@@ -234,10 +255,10 @@ def main():
 
         root_all_routes.extend(airline_info["routes"])
 
-    # 產出全站頂層 index.json: public/data/index.json
+    # Output root index
     root_payload = {
         "title": "Flight Radar 航班票價索引",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "updatedAt": now_str,
         "weeksCount": 40,
         "config": {
@@ -256,6 +277,7 @@ def main():
 
     print("🎉 成功建立分層索引與航線資料檔！")
     print(f"  - 頂層索引: {root_index_path}")
+
 
 if __name__ == "__main__":
     main()

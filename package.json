@@ -3,10 +3,21 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "華航週末機票 40 週雷達 — Flight Radar 視覺化工具",
+  "author": "YuHaoLiao",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write src/",
+    "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "vue": "^3.4.21",

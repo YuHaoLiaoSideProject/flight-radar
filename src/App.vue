@@ -29,8 +29,9 @@ async function loadRootIndex() {
       selectedRouteId.value = data.config?.defaultRoute || data.routes[0].id
       await loadRouteMeta(selectedRouteId.value)
     }
-  } catch (err: any) {
-    error.value = err.message || '載入失敗'
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    error.value = msg || '載入失敗'
   } finally {
     loading.value = false
   }
@@ -67,15 +68,17 @@ async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
     loadAllWeeks(routeId)
     
     return detail
-  } catch (err: any) {
-    console.error(err)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`載入航線資料失敗: ${msg}`)
     return null
   }
 }
 
 async function loadAllWeeks(routeId: string) {
   const detail = routeDetailsMap.value[routeId]
-  if (!detail || detail.isLoadingWeeks) return
+  if (!detail || detail.isLoadingWeeks || detail.loadedWeeks >= detail.totalWeeks) return
+  if (!detail.topDeals || detail.topDeals.length === 0) return
 
   const routeSummary = rootIndex.value?.routes.find(r => r.id === routeId)
   if (!routeSummary) return
@@ -85,43 +88,47 @@ async function loadAllWeeks(routeId: string) {
 
   // 從 meta.json 路徑提取基礎路徑 (api/airlines/CI/TPE-NRT)
   const weeksBasePath = routeSummary.path.replace('/meta.json', '') + '/weeks'
-  
-  // 從 topDeals 取得所有 departure date 作為週列表
-  // 這裡我們需要知道所有週的 departure date
-  // 先建立一個簡單的日期序列 (每週五出發)
-  const meta = detail
-  const startDate = new Date(meta.topDeals[0]?.departureDate || '2026-09-05')
-  
-  // 產生 40 週的日期列表
+
+  const CONCURRENT = 4
+  const startDate = new Date(detail.topDeals[0].departureDate)
   const weekDates: string[] = []
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < detail.totalWeeks; i++) {
     const d = new Date(startDate)
     d.setDate(d.getDate() + i * 7)
     weekDates.push(d.toISOString().split('T')[0])
   }
 
-  // 並行載入所有週
-  const loadPromises = weekDates.map(async (dateStr) => {
-    try {
-      const res = await fetch(`./${weeksBasePath}/${dateStr}.json`)
-      if (res.ok) {
-        const weekData: WeekItem = await res.json()
-        detail.weeklyData.push(weekData)
-        detail.loadedWeeks++
-        detail.loadProgress = Math.round((detail.loadedWeeks / detail.totalWeeks) * 100)
-        loadingProgress.value[routeId].loaded = detail.loadedWeeks
+  let running = 0
+  const queue = [...weekDates]
+  const results: WeekItem[] = []
+
+  await new Promise<void>((resolve) => {
+    function next() {
+      while (running < CONCURRENT && queue.length) {
+        const dateStr = queue.shift()!
+        running++
+        fetch(`./${weeksBasePath}/${dateStr}.json`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (data) results.push(data as WeekItem) })
+          .catch(() => {})
+          .finally(() => {
+            running--
+            if (!queue.length && running === 0) resolve()
+            else next()
+          })
       }
-    } catch (err) {
-      console.warn(`載入週資料失敗: ${dateStr}`, err)
     }
+    next()
   })
 
-  await Promise.all(loadPromises)
-  
-  // 按 weekIndex 排序
-  detail.weeklyData.sort((a, b) => a.weekIndex - b.weekIndex)
-  detail.isLoadingWeeks = false
-  detail.loadProgress = 100
+  const sortedData = results.sort((a, b) => a.weekIndex - b.weekIndex)
+  loadingProgress.value[routeId].loaded = detail.totalWeeks
+
+  // 整體賦值，避免 reactive mutation
+  routeDetailsMap.value = {
+    ...routeDetailsMap.value,
+    [routeId]: { ...detail, weeklyData: sortedData, loadedWeeks: detail.totalWeeks, isLoadingWeeks: false, loadProgress: 100 }
+  }
 }
 
 watch(compareAll, async (newVal) => {

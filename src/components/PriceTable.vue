@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { RouteDetail } from '../types/flight'
+import { getGoogleFlightsUrl } from '../utils/url'
 
 const props = defineProps<{
   activeRoute: RouteDetail
@@ -23,9 +24,6 @@ const filteredData = computed(() => {
   })
 })
 
-function getGoogleFlightsUrl(origin: string, dest: string, dep: string, ret: string) {
-  return `https://www.google.com/travel/flights?q=flights%20from%20${origin}%20to%20${dest}%20on%20${dep}%20returning%20${ret}`
-}
 </script>
 
 <template>
@@ -57,14 +55,15 @@ function getGoogleFlightsUrl(origin: string, dest: string, dep: string, ret: str
 
     <div class="overflow-x-auto rounded-xl border border-slate-700/70">
       <table class="w-full text-left text-xs text-slate-300">
+        <caption class="sr-only">{{ activeRoute.name }} 未來 40 週完整票價明細表</caption>
         <thead class="bg-slate-900/80 text-slate-400 font-semibold border-b border-slate-700">
           <tr>
-            <th class="py-3 px-4">週次</th>
-            <th class="py-3 px-4">出發日期 (週六)</th>
-            <th class="py-3 px-4">返程日期 (隔週日)</th>
-            <th class="py-3 px-4">時段 / 節慶標籤</th>
-            <th class="py-3 px-4 text-right">華航來回最低價</th>
-            <th class="py-3 px-4 text-center">購票連結</th>
+            <th scope="col" class="py-3 px-4">週次</th>
+            <th scope="col" class="py-3 px-4">出發日期 (週六)</th>
+            <th scope="col" class="py-3 px-4">返程日期 (隔週日)</th>
+            <th scope="col" class="py-3 px-4">時段 / 節慶標籤</th>
+            <th scope="col" class="py-3 px-4 text-right">華航來回最低價</th>
+            <th scope="col" class="py-3 px-4 text-center">購票連結</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/80">

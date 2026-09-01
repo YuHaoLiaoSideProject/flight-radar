@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { RouteDetail } from '../types/flight'
+import { getGoogleFlightsUrl } from '../utils/url'
 
 defineProps<{
   activeRoute: RouteDetail
 }>()
 
-function getGoogleFlightsUrl(origin: string, dest: string, dep: string, ret: string) {
-  return `https://www.google.com/travel/flights?q=flights%20from%20${origin}%20to%20${dest}%20on%20${dep}%20returning%20${ret}`
-}
 </script>
 
 <template>

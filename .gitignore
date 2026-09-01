@@ -7,3 +7,21 @@ public/
 
 # TypeScript build info
 tsconfig.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/

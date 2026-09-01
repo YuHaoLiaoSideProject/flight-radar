@@ -1,56 +1,18 @@
 import datetime
-import glob
 import json
 import os
 
-def get_holiday_tag(dep_date_str):
-    dep = datetime.datetime.strptime(dep_date_str, "%Y-%m-%d").date()
-    if dep >= datetime.date(2026, 9, 26) and dep <= datetime.date(2026, 10, 4):
-        return "中秋連假前後"
-    elif dep >= datetime.date(2026, 10, 9) and dep <= datetime.date(2026, 10, 11):
-        return "國慶雙十連假"
-    elif dep >= datetime.date(2026, 11, 7) and dep <= datetime.date(2026, 11, 28):
-        return "賞楓銀杏旺季"
-    elif dep >= datetime.date(2026, 12, 25) and dep <= datetime.date(2027, 1, 3):
-        return "跨年元旦假期"
-    elif dep >= datetime.date(2027, 2, 5) and dep <= datetime.date(2027, 2, 14):
-        return "🧨 春節除夕過年"
-    elif dep >= datetime.date(2027, 2, 26) and dep <= datetime.date(2027, 3, 1):
-        return "228 連假"
-    elif dep >= datetime.date(2027, 3, 20) and dep <= datetime.date(2027, 3, 28):
-        return "🌸 櫻花季初開"
-    elif dep >= datetime.date(2027, 4, 1) and dep <= datetime.date(2027, 4, 11):
-        return "🌸 清明連假/櫻花滿開"
-    elif dep >= datetime.date(2027, 4, 30) and dep <= datetime.date(2027, 5, 9):
-        return "五一勞動節/日本黃金週"
-    elif dep >= datetime.date(2027, 6, 4) and dep <= datetime.date(2027, 6, 13):
-        return "端午節前後"
-    return None
-
-def get_all_snapshots(route_dir):
-    """讀取該航線所有依日期命名的快照檔案，並按日期排序"""
-    json_files = glob.glob(os.path.join(route_dir, "*.json"))
-    date_files = []
-    for f in json_files:
-        basename = os.path.basename(f)
-        if basename.endswith(".json") and len(basename) == 15: # YYYY-MM-DD.json
-            date_files.append(f)
-    date_files.sort()
-    
-    snapshots = []
-    for f in date_files:
-        try:
-            with open(f, "r", encoding="utf-8") as rf:
-                snapshots.append((os.path.basename(f).replace(".json", ""), json.load(rf)))
-        except Exception:
-            pass
-    return snapshots
+from shared import (
+    DATA_DIR,
+    PUBLIC_DIR,
+    get_all_snapshots,
+    get_holiday_tag,
+)
 
 def main():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    routes_config_path = os.path.join(script_dir, "../data/routes.json")
-    raw_data_dir = os.path.join(script_dir, "../data/raw")
-    api_dir = os.path.join(script_dir, "../public/api")
+    routes_config_path = DATA_DIR / "routes.json"
+    raw_data_dir = DATA_DIR / "raw"
+    api_dir = PUBLIC_DIR / "api"
 
     os.makedirs(api_dir, exist_ok=True)
 
@@ -119,7 +81,10 @@ def main():
             
             cur_price = flight.get("price")
             prev_price = prev_price_map.get(k, cur_price)
-            price_diff = (cur_price - prev_price) if (cur_price and prev_price) else 0
+            if cur_price is not None and prev_price is not None:
+                price_diff = cur_price - prev_price
+            else:
+                price_diff = None
 
             flight_history = history_map.get(k, [])
 
