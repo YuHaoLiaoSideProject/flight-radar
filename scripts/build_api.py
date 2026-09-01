@@ -142,12 +142,13 @@ def main():
         sorted_by_price = sorted([x for x in weekly_data if x["price"] is not None], key=lambda x: x["price"])
         top_deals = sorted_by_price[:5]
 
-        # 產出航線 API: public/api/airlines/{airline_code}/{route_id}/index.json
+        # 產出航線 API: public/api/airlines/{airline_code}/{route_id}/
         route_api_dir = os.path.join(api_dir, "airlines", airline_code, route_id)
-        os.makedirs(route_api_dir, exist_ok=True)
-        route_api_file = os.path.join(route_api_dir, "index.json")
+        weeks_dir = os.path.join(route_api_dir, "weeks")
+        os.makedirs(weeks_dir, exist_ok=True)
 
-        route_payload = {
+        # 寫 meta.json (輕量)
+        meta_payload = {
             "id": route["id"],
             "name": route["name"],
             "origin": route["origin"],
@@ -164,14 +165,26 @@ def main():
                 "minPrice": min_price,
                 "avgPrice": avg_price
             },
-            "topDeals": top_deals,
-            "weeklyData": weekly_data
+            "topDeals": [{
+                "weekIndex": d["weekIndex"],
+                "departureDate": d["departureDate"],
+                "returnDate": d["returnDate"],
+                "label": d["label"],
+                "tag": d["tag"],
+                "price": d["price"]
+            } for d in top_deals]
         }
 
-        with open(route_api_file, "w", encoding="utf-8") as af:
-            json.dump(route_payload, af, ensure_ascii=False, indent=2)
+        with open(os.path.join(route_api_dir, "meta.json"), "w", encoding="utf-8") as af:
+            json.dump(meta_payload, af, ensure_ascii=False, indent=2)
 
-        relative_route_path = f"api/airlines/{airline_code}/{route_id}/index.json"
+        # 寫每週資料 (依 departure date 命名)
+        for week in weekly_data:
+            week_file = os.path.join(weeks_dir, f"{week['departureDate']}.json")
+            with open(week_file, "w", encoding="utf-8") as wf:
+                json.dump(week, wf, ensure_ascii=False, indent=2)
+
+        relative_route_path = f"api/airlines/{airline_code}/{route_id}/meta.json"
         airlines_map[airline_code]["routes"].append({
             "id": route["id"],
             "name": route["name"],

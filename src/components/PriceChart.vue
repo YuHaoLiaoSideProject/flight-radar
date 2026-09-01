@@ -145,9 +145,19 @@ onMounted(() => {
   renderChart()
 })
 
-watch([() => props.selectedRouteId, () => props.compareAll, () => props.routes], () => {
+// 監聽航線切換、對比模式、以及每條航線的 weeklyData 長度變化
+watch([() => props.selectedRouteId, () => props.compareAll], () => {
   renderChart()
-}, { deep: true })
+})
+
+// 用 deep watch 監聽 weeklyData 內容變化（載入更多週時觸發）
+watch(
+  () => props.routes.map(r => r.weeklyData.length),
+  () => {
+    renderChart()
+  },
+  { deep: true }
+)
 </script>
 
 <template>

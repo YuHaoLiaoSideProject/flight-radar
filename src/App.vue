@@ -4,7 +4,7 @@ import Navbar from './components/Navbar.vue'
 import TopDeals from './components/TopDeals.vue'
 import PriceChart from './components/PriceChart.vue'
 import PriceTable from './components/PriceTable.vue'
-import type { RootIndex, RouteDetail } from './types/flight'
+import type { RootIndex, RouteMeta, RouteDetail, WeekItem } from './types/flight'
 
 const rootIndex = ref<RootIndex | null>(null)
 const selectedRouteId = ref<string>('TPE-NRT')
@@ -12,8 +12,10 @@ const compareAll = ref<boolean>(false)
 
 const routeDetailsMap = ref<Record<string, RouteDetail>>({})
 const loading = ref<boolean>(true)
-const routeLoading = ref<boolean>(false)
 const error = ref<string | null>(null)
+
+// 用來追蹤每條航線的週載入狀態
+const loadingProgress = ref<Record<string, { loaded: number; total: number }>>({})
 
 async function loadRootIndex() {
   try {
@@ -25,7 +27,7 @@ async function loadRootIndex() {
     
     if (data.routes && data.routes.length > 0) {
       selectedRouteId.value = data.config?.defaultRoute || data.routes[0].id
-      await loadRouteDetail(selectedRouteId.value)
+      await loadRouteMeta(selectedRouteId.value)
     }
   } catch (err: any) {
     error.value = err.message || '載入失敗'
@@ -34,7 +36,8 @@ async function loadRootIndex() {
   }
 }
 
-async function loadRouteDetail(routeId: string) {
+async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
+  // 如果已載入完整資料，直接回傳
   if (routeDetailsMap.value[routeId]) {
     return routeDetailsMap.value[routeId]
   }
@@ -43,32 +46,95 @@ async function loadRouteDetail(routeId: string) {
   if (!routeSummary) return null
 
   try {
-    routeLoading.value = true
-    const res = await fetch(`./${routeSummary.path}`)
-    if (!res.ok) throw new Error(`無法讀取航線數據: ${routeSummary.path}`)
-    const detail: RouteDetail = await res.json()
+    // 載入 meta.json
+    const metaPath = routeSummary.path.replace('/index.json', '/meta.json')
+    const res = await fetch(`./${metaPath}`)
+    if (!res.ok) throw new Error(`無法讀取航線 meta: ${metaPath}`)
+    const meta: RouteMeta = await res.json()
+
+    // 建立初始 RouteDetail
+    const detail: RouteDetail = {
+      ...meta,
+      weeklyData: [],
+      loadedWeeks: 0,
+      totalWeeks: meta.weeksCount,
+      isLoadingWeeks: false,
+      loadProgress: 0
+    }
     routeDetailsMap.value[routeId] = detail
+    
+    // 開始背景載入所有週資料
+    loadAllWeeks(routeId)
+    
     return detail
   } catch (err: any) {
     console.error(err)
     return null
-  } finally {
-    routeLoading.value = false
   }
+}
+
+async function loadAllWeeks(routeId: string) {
+  const detail = routeDetailsMap.value[routeId]
+  if (!detail || detail.isLoadingWeeks) return
+
+  const routeSummary = rootIndex.value?.routes.find(r => r.id === routeId)
+  if (!routeSummary) return
+
+  detail.isLoadingWeeks = true
+  loadingProgress.value[routeId] = { loaded: 0, total: detail.totalWeeks }
+
+  const weeksBasePath = routeSummary.path.replace('/index.json', '/weeks')
+  
+  // 從 topDeals 取得所有 departure date 作為週列表
+  // 這裡我們需要知道所有週的 departure date
+  // 先建立一個簡單的日期序列 (每週五出發)
+  const meta = detail
+  const startDate = new Date(meta.topDeals[0]?.departureDate || '2026-09-05')
+  
+  // 產生 40 週的日期列表
+  const weekDates: string[] = []
+  for (let i = 0; i < 40; i++) {
+    const d = new Date(startDate)
+    d.setDate(d.getDate() + i * 7)
+    weekDates.push(d.toISOString().split('T')[0])
+  }
+
+  // 並行載入所有週
+  const loadPromises = weekDates.map(async (dateStr) => {
+    try {
+      const res = await fetch(`./${weeksBasePath}/${dateStr}.json`)
+      if (res.ok) {
+        const weekData: WeekItem = await res.json()
+        detail.weeklyData.push(weekData)
+        detail.loadedWeeks++
+        detail.loadProgress = Math.round((detail.loadedWeeks / detail.totalWeeks) * 100)
+        loadingProgress.value[routeId].loaded = detail.loadedWeeks
+      }
+    } catch (err) {
+      console.warn(`載入週資料失敗: ${dateStr}`, err)
+    }
+  })
+
+  await Promise.all(loadPromises)
+  
+  // 按 weekIndex 排序
+  detail.weeklyData.sort((a, b) => a.weekIndex - b.weekIndex)
+  detail.isLoadingWeeks = false
+  detail.loadProgress = 100
 }
 
 watch(compareAll, async (newVal) => {
   if (newVal && rootIndex.value) {
     for (const r of rootIndex.value.routes) {
       if (!routeDetailsMap.value[r.id]) {
-        await loadRouteDetail(r.id)
+        await loadRouteMeta(r.id)
       }
     }
   }
 })
 
 watch(selectedRouteId, async (newId) => {
-  await loadRouteDetail(newId)
+  await loadRouteMeta(newId)
 })
 
 const currentRouteDetail = computed(() => {
@@ -94,7 +160,7 @@ onMounted(() => {
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div v-if="loading" class="flex flex-col items-center justify-center py-24 space-y-4">
         <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-slate-400 text-sm">正在載入 API 結構與航線數據...</p>
+        <p class="text-slate-400 text-sm">正在載入 API 結構...</p>
       </div>
 
       <div v-else-if="error" class="bg-rose-950/40 border border-rose-800 text-rose-200 p-6 rounded-2xl text-center my-12">
@@ -134,11 +200,21 @@ onMounted(() => {
           </button>
         </div>
 
-        <div v-if="routeLoading && !currentRouteDetail" class="py-12 text-center text-slate-400 text-xs">
-          載入航線詳細數據中...
+        <!-- 載入進度條 -->
+        <div v-if="currentRouteDetail?.isLoadingWeeks" class="mb-6">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+            <span>載入週資料中...</span>
+            <span>{{ currentRouteDetail.loadedWeeks }} / {{ currentRouteDetail.totalWeeks }} ({{ currentRouteDetail.loadProgress }}%)</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div 
+              class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300 ease-out"
+              :style="{ width: `${currentRouteDetail.loadProgress}%` }"
+            ></div>
+          </div>
         </div>
 
-        <template v-else-if="currentRouteDetail">
+        <template v-if="currentRouteDetail">
           <TopDeals :activeRoute="currentRouteDetail" />
           <PriceChart
             :routes="allLoadedRouteDetails"

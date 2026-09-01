@@ -6,6 +6,18 @@ export interface WeekItem {
   tag: string | null
   isHoliday: boolean
   price: number | null
+  previousPrice: number | null
+  priceDiff: number
+  history: { queryDate: string; price: number }[]
+}
+
+export interface TopDealItem {
+  weekIndex: number
+  departureDate: string
+  returnDate: string
+  label: string
+  tag: string | null
+  price: number
 }
 
 export interface RouteSummary {
@@ -40,7 +52,8 @@ export interface RootIndex {
   routes: RouteSummary[]
 }
 
-export interface RouteDetail {
+// meta.json 結構
+export interface RouteMeta {
   id: string
   name: string
   origin: string
@@ -50,12 +63,21 @@ export interface RouteDetail {
   color: string
   stayDays: number
   generatedAt: string
-  rawFetchedAt: string
+  latestQueryDate: string
+  totalSnapshotsRecorded: number
   weeksCount: number
   stats: {
     minPrice: number
     avgPrice: number
   }
-  topDeals: WeekItem[]
+  topDeals: TopDealItem[]
+}
+
+// 完整航線資料 (meta + 已載入的週資料)
+export interface RouteDetail extends RouteMeta {
   weeklyData: WeekItem[]
+  loadedWeeks: number
+  totalWeeks: number
+  isLoadingWeeks: boolean
+  loadProgress: number
 }
