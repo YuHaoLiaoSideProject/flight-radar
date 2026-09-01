@@ -194,8 +194,8 @@ def fetch_flights_fast_flights(
 
             price = None
             for flight in results:
-                flight_airlines = [a.upper() for a in flight.airlines]
-                if any(airline_code.upper() in a for a in flight_airlines):
+                # flight.type 是 airline code (e.g., 'CI'), flight.airlines 是中文名 (e.g., '中華航空')
+                if flight.type.upper() == airline_code.upper():
                     price = flight.price
                     break
 
