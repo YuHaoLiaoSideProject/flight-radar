@@ -22,7 +22,7 @@ graph LR
 
 ```mermaid
 graph TD
-    FRD[fetch_raw_data.py] -->|JSON 快照| RAW[data/raw/{airline}/{route}/{date}.json]
+    FRD[fetch_raw_data.py] -->|JSON 快照| RAW["data/raw/{airline}/{route}/{date}.json"]
     ROOT[data/routes.json] --> FRD
 ```
 
@@ -35,9 +35,9 @@ graph TD
     RAW[data/raw/ 快照] -->|解析 + 合併| BA[build_api.py]
     SH[shared.py] -.->|共用函式| BA
     BA --> INDEX[index.json]
-    BA --> AIRLINE[airlines/{code}/index.json]
+    BA --> AIRLINE["airlines/{code}/index.json"]
     BA --> META[meta.json]
-    BA --> WEEKS[weeks/{date}.json]
+    BA --> WEEKS["weeks/{date}.json"]
 ```
 
 ### 🎨 前端 Vue 3 + TypeScript
