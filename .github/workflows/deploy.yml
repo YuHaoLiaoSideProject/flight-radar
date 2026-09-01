@@ -29,18 +29,18 @@ jobs:
           cache: 'npm'
 
       - name: Setup Python
-        if: ${{ github.event.inputs.skip_crawler != 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_crawler != 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Install Python dependencies
-        if: ${{ github.event.inputs.skip_crawler != 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_crawler != 'true' }}
         run: |
           pip install requests beautifulsoup4
 
       - name: Run crawler
-        if: ${{ github.event.inputs.skip_crawler != 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_crawler != 'true' }}
         run: |
           python scripts/fetch_flights.py
           python scripts/fetch_raw_data.py
