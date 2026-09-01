@@ -93,18 +93,21 @@ async function loadAllWeeks(routeId: string) {
   // 從 latestQueryDate 重建第一個週六作為錨點（與 build_api.py 的 generate_weekly_dates 一致）
   const queryDate = detail.latestQueryDate
   if (!queryDate) return
-  const qd = new Date(queryDate + 'T00:00:00')
-  // find next Saturday (weekday 5); if already Saturday, take next Saturday
-  let daysToSat = (5 - qd.getDay()) % 7
+  // 使用本地時間避免時區問題
+  const [y, m, d] = queryDate.split('-').map(Number)
+  const qd = new Date(y, m - 1, d) // month is 0-indexed
+  // JS getDay(): 0=Sun, 1=Mon, ..., 6=Sat
+  let daysToSat = (6 - qd.getDay()) % 7
   if (daysToSat === 0) daysToSat = 7
-  const firstSaturday = new Date(qd)
-  firstSaturday.setDate(firstSaturday.getDate() + daysToSat)
+  const firstSaturday = new Date(y, m - 1, d + daysToSat)
 
   const weekDates: string[] = []
   for (let i = 0; i < detail.totalWeeks; i++) {
     const d = new Date(firstSaturday)
     d.setDate(d.getDate() + i * 7)
-    weekDates.push(d.toISOString().split('T')[0])
+    // 使用本地時間格式化，避免 toISOString() 的 UTC 轉換
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    weekDates.push(dateStr)
   }
 
   let running = 0
