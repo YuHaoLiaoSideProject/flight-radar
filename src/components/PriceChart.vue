@@ -110,7 +110,9 @@ function renderChart() {
           callbacks: {
             title: (items) => {
               const idx = items[0]?.dataIndex ?? 0
-              const item = baseRoute.weeklyData[idx]
+              const route = props.routes[0]
+              const item = route?.weeklyData[idx]
+              if (!item) return `第 ${idx + 1} 週：載入中...`
               return `第 ${idx + 1} 週：${item.departureDate} ~ ${item.returnDate}${item.tag ? ` (${item.tag})` : ''}`
             },
             label: (item) => {
