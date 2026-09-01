@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { RouteDetail } from '../types/flight'
 
-const props = defineProps<{
+defineProps<{
   activeRoute: RouteDetail
 }>()
 
