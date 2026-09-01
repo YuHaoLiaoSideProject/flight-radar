@@ -83,7 +83,8 @@ async function loadAllWeeks(routeId: string) {
   detail.isLoadingWeeks = true
   loadingProgress.value[routeId] = { loaded: 0, total: detail.totalWeeks }
 
-  const weeksBasePath = routeSummary.path.replace('/index.json', '/weeks')
+  // 從 meta.json 路徑提取基礎路徑 (api/airlines/CI/TPE-NRT)
+  const weeksBasePath = routeSummary.path.replace('/meta.json', '') + '/weeks'
   
   // 從 topDeals 取得所有 departure date 作為週列表
   // 這裡我們需要知道所有週的 departure date
