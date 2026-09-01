@@ -41,106 +41,60 @@ flowchart TD
 
 ## 📤 子任務派發圖
 
+### 主 Session 工作流
+
+主 Session 負責評估、拆解、派發子任務，最後彙整結果。
+
 ```mermaid
 flowchart LR
-    subgraph Main["🎯 主 Session"]
-        M1["評估"] --> M2["拆解"]
-        M2 --> M3["派發"]
-        M3 --> M4["彙整"]
-    end
-
-    subgraph Sub1["📝 子任務 1: 前端審查"]
-        S1A["App.vue 狀態管理"]
-        S1B["組件 Props 設計"]
-        S1C["TypeScript 型別"]
-        S1D["效能分析"]
-    end
-
-    subgraph Sub2["🐍 子任務 2: 後端審查"]
-        S2A["shared.py 工具函式"]
-        S2B["fetch_raw_data.py"]
-        S2C["build_api.py"]
-        S2D["錯誤處理"]
-    end
-
-    subgraph Sub3["🏗️ 子任務 3: 架構審查"]
-        S3A["資料流設計"]
-        S3B["模組耦合度"]
-        S3C["API 結構"]
-    end
-
-    subgraph Sub4["🚀 子任務 4: 部署審查"]
-        S4A["GitHub Actions"]
-        S4B["Vite 建置"]
-        S4C["安全性"]
-    end
-
-    M3 -->|派發| Sub1
-    M3 -->|派發| Sub2
-    M3 -->|派發| Sub3
-    M3 -->|派發| Sub4
-
-    Sub1 -->|結果| M4
-    Sub2 -->|結果| M4
-    Sub3 -->|結果| M4
-    Sub4 -->|結果| M4
-
-    style Main fill:#3B82F6,color:#fff
-    style Sub1 fill:#10B981,color:#fff
-    style Sub2 fill:#F59E0B,color:#000
-    style Sub3 fill:#8B5CF6,color:#fff
-    style Sub4 fill:#EF4444,color:#fff
+    M1["評估"] --> M2["拆解"]
+    M2 --> M3["派發"]
+    M3 --> M4["彙整結果"]
 ```
+
+### 子任務內容
+
+各子任務負責不同模組的審查工作。
+
+| 子任務 | 模組 | 審查項目 |
+|--------|------|----------|
+| 📝 子任務 1 | 前端 | App.vue 狀態管理、組件 Props、TypeScript 型別、效能分析 |
+| 🐍 子任務 2 | 後端 | shared.py 工具函式、fetch_raw_data.py、build_api.py、錯誤處理 |
+| 🏗️ 子任務 3 | 架構 | 資料流設計、模組耦合度、API 結構 |
+| 🚀 子任務 4 | 部署 | GitHub Actions、Vite 建置、安全性 |
 
 ---
 
 ## 🔧 修復流程圖
 
+### 問題分類與處理
+
+根據問題嚴重性採取不同的處理方式。
+
 ```mermaid
 flowchart TD
-    subgraph Review["審查階段"]
-        R1["逐檔案審查"]
-        R2["記錄問題"]
-        R3{"問題嚴重性"}
-    end
+    R1["逐檔案審查"] --> R2["記錄問題"]
+    R2 --> R3{"問題嚴重性"}
+    R3 -->|Critical| C1["🔴 立即修復"]
+    R3 -->|Warning| W1["🟡 排入修復"]
+    R3 -->|Info| I1["🟢 記錄待辦"]
+    C1 --> C2["驗證修復"]
+    W1 --> W2["評估影響"]
+    I1 --> I2["後續處理"]
+```
 
-    subgraph Critical["🔴 嚴重問題"]
-        C1["立即修復"]
-        C2["驗證修復"]
-    end
+### 驗證與完成
 
-    subgraph Warning["🟡 警告問題"]
-        W1["排入修復"]
-        W2["評估影響"]
-    end
+修復後需驗證，通過則記錄完成，否則重新修復。
 
-    subgraph Info["🟢 建議改善"]
-        I1["記錄待辦"]
-        I2["後續處理"]
-    end
-
-    R1 --> R2
-    R2 --> R3
-
-    R3 -->|"Critical"| C1
-    R3 -->|"Warning"| W1
-    R3 -->|"Info"| I1
-
-    C1 --> C2
-    W1 --> W2
-    I1 --> I2
-
-    C2 --> VERIFY{"驗證通過?"}
-    W2 --> VERIFY
-    I2 --> DONE["記錄完成"]
-
-    VERIFY -->|"是"| DONE
-    VERIFY -->|"否"| FIX["重新修復"]
-    FIX --> C1
-
-    style Critical fill:#EF4444,color:#fff
-    style Warning fill:#F59E0B,color:#000
-    style Info fill:#10B981,color:#fff
+```mermaid
+flowchart TD
+    C2["驗證修復"] --> VERIFY{"驗證通過?"}
+    W2["評估影響"] --> VERIFY
+    I2["後續處理"] --> DONE["記錄完成"]
+    VERIFY -->|是| DONE
+    VERIFY -->|否| FIX["重新修復"]
+    FIX --> C1["立即修復"]
 ```
 
 ---

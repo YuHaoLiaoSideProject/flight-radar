@@ -2,91 +2,68 @@
 
 ## 🏗️ 系統架構圖
 
+### 🌐 外部 API 與資料抓取
+
+外部資料源（Google Flights、Amadeus）由 Python 腳本抓取，設定檔定義航線。
+
+```mermaid
+graph LR
+    GF[Google Flights] -->|HTTP| FRD[fetch_raw_data.py]
+    AMA[Amadeus API] -->|REST| FF[fetch_flights.py]
+    RC[routes_config.json] --> FRD
+    RC --> FF
+    SH[shared.py] -.->|共用函式| FRD
+    SH -.->|共用函式| FF
+```
+
+### 💾 資料層
+
+抓取的資料儲存為日期快照，供 API 建構器讀取。
+
+```mermaid
+graph TD
+    FRD[fetch_raw_data.py] -->|JSON 快照| RAW[data/raw/{airline}/{route}/{date}.json]
+    ROOT[data/routes.json] --> FRD
+```
+
+### 📡 API 層
+
+API 建構器從快照產生靜態 JSON，供前端 fetch。
+
+```mermaid
+graph TD
+    RAW[data/raw/ 快照] -->|解析 + 合併| BA[build_api.py]
+    SH[shared.py] -.->|共用函式| BA
+    BA --> INDEX[index.json]
+    BA --> AIRLINE[airlines/{code}/index.json]
+    BA --> META[meta.json]
+    BA --> WEEKS[weeks/{date}.json]
+```
+
+### 🎨 前端 Vue 3 + TypeScript
+
+前端元件從 API 載入資料，以圖表和表格呈現票價資訊。
+
 ```mermaid
 graph TB
-    subgraph External["🌐 外部 API"]
-        GF[Google Flights<br/>透過 fast-flights 套件]
-        AMA[Amadeus Flight API<br/>備用資料源]
-    end
+    INDEX[index.json] -->|fetch| APP[App.vue]
+    META[meta.json] -->|fetch| APP
+    WEEKS[weeks/*.json] -->|背景載入| APP
+    APP --> NAV[Navbar.vue]
+    APP --> TC[TopDeals.vue]
+    APP --> PC[PriceChart.vue]
+    APP --> PT[PriceTable.vue]
+    TYPES[types/flight.ts] -.->|型別定義| APP
+```
 
-    subgraph PythonLayer["🐍 Python 腳本層"]
-        direction TB
-        SH["shared.py<br/>共用工具庫"]
-        FRD["fetch_raw_data.py<br/>原始快照抓取器"]
-        FF["fetch_flights.py<br/>即時票價查詢器"]
-        BA["build_api.py<br/>API 建構器"]
-    end
+### 🚀 部署
 
-    subgraph ConfigLayer["⚙️ 設定層"]
-        RC["routes_config.json<br/>航線定義（4 條航線）"]
-    end
+前端建置後自動部署到 GitHub Pages。
 
-    subgraph DataLayer["💾 資料層"]
-        direction TB
-        RAW["data/raw/{airline}/{route}/{date}.json<br/>日期快照（歷史記錄）"]
-        ROOT["data/routes.json<br/>航線清單"]
-    end
-
-    subgraph APILayer["📡 API 層"]
-        direction TB
-        INDEX["public/api/index.json<br/>全站索引"]
-        AIRLINE["public/api/airlines/{code}/index.json<br/>航司索引"]
-        META["public/api/airlines/{code}/{route}/meta.json<br/>航線 meta"]
-        WEEKS["public/api/airlines/{code}/{route}/weeks/{date}.json<br/>週資料"]
-    end
-
-    subgraph Frontend["🎨 前端 Vue 3 + TypeScript"]
-        direction TB
-        MT["main.ts<br/>進入點"]
-        APP["App.vue<br/>主控元件"]
-        NAV["Navbar.vue<br/>導覽列"]
-        TC["TopDeals.vue<br/>最低價推薦"]
-        PC["PriceChart.vue<br/>價格走勢圖 (Chart.js)"]
-        PT["PriceTable.vue<br/>週價格表格"]
-        TYPES["types/flight.ts<br/>型別定義"]
-    end
-
-    subgraph Deploy["🚀 部署"]
-        CI["GitHub Actions<br/>CI/CD Pipeline"]
-        GHP["GitHub Pages<br/>靜態託管"]
-    end
-
-    %% 外部到 Python
-    GF -->|HTTP 爬取| FRD
-    AMA -->|REST API| FF
-    RC --> FRD
-    RC --> FF
-
-    %% Python 內部
-    SH -.->|共用函式| FRD
-    SH -.->|共用函式| FF
-    SH -.->|共用函式| BA
-
-    %% Python 到資料層
-    FRD -->|JSON 快照| RAW
-    ROOT --> FRD
-
-    %% 資料層到 API 層
-    RAW -->|解析 + 合併| BA
-    BA -->|寫入| INDEX
-    BA -->|寫入| AIRLINE
-    BA -->|寫入| META
-    BA -->|寫入| WEEKS
-
-    %% API 到前端
-    INDEX -->|fetch| APP
-    META -->|fetch| APP
-    WEEKS -->|背景載入| APP
-
-    APP --> NAV
-    APP --> TC
-    APP --> PC
-    APP --> PT
-    TYPES -.-> APP
-
-    %% 部署
-    APP -->|vite build| CI
-    CI -->|deploy| GHP
+```mermaid
+graph LR
+    APP[App.vue] -->|vite build| CI[GitHub Actions]
+    CI -->|deploy| GHP[GitHub Pages]
 ```
 
 ---

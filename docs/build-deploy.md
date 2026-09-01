@@ -90,42 +90,35 @@ python scripts/fetch_flights.py                    # 直接輸出到 public/data
 
 ## 🚀 GitHub Actions CI/CD 流程
 
+### 觸發與環境設定
+
+CI/CD 由 git push 或手動觸發，先設定 Node.js 和 Python 環境。
+
 ```mermaid
 flowchart TD
-    subgraph Trigger["觸發條件"]
-        T1["git push main"]
-        T2["workflow_dispatch<br/>手動觸發"]
-    end
+    T1["git push main"] --> B1["Checkout code"]
+    T2["workflow_dispatch"] --> B1
+    B1 --> B2["Setup Node.js 22"]
+    B2 --> B3["Setup Python 3.x"]
+    B3 --> B4["pip install"]
+    B4 --> B5{"skip_crawler?"}
+    B5 -->|否| B6["執行爬蟲"]
+    B5 -->|是| B7["跳過爬蟲"]
+    B6 --> B8["建構 API"]
+    B7 --> B8
+    B8 --> BUILD["npm run build"]
+```
 
-    subgraph BuildJob["🏗️ Build Job"]
-        B1["Checkout code"] --> B2["Setup Node.js 22"]
-        B2 --> B3["Setup Python 3.x"]
-        B3 --> B4["pip install<br/>requests beautifulsoup4"]
-        B4 --> B5{"skip_crawler?"}
+### 建置與部署
 
-        B5 -->|"false (預設)"| B6["python fetch_raw_data.py<br/>執行爬蟲"]
-        B5 -->|"true (跳過)"| B7["跳過爬蟲"]
+前端建置後上傳 artifact，由 Deploy Job 部署到 GitHub Pages。
 
-        B6 --> B8["python build_api.py<br/>建構 API"]
-        B7 --> B8
-
-        B8 --> B9["npm ci<br/>安裝依賴"]
-        B9 --> B10["npm run build<br/>建置前端"]
-        B10 --> B11["cp CNAME dist/<br/>自訂網域"]
-        B11 --> B12["Upload artifact<br/>dist/ 目錄"]
-    end
-
-    subgraph DeployJob["🚀 Deploy Job"]
-        D1["Deploy to GitHub Pages"]
-        D2["产出部署 URL"]
-    end
-
-    Trigger --> BuildJob
-    B12 --> DeployJob
-
-    style Trigger fill:#F59E0B,color:#000
-    style BuildJob fill:#3B82F6,color:#fff
-    style DeployJob fill:#10B981,color:#fff
+```mermaid
+flowchart TD
+    BUILD["npm run build"] --> B11["cp CNAME dist/"]
+    B11 --> B12["Upload artifact"]
+    B12 --> D1["Deploy to GitHub Pages"]
+    D1 --> D2["产出部署 URL"]
 ```
 
 ---

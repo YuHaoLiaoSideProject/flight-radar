@@ -12,63 +12,49 @@
 
 ## 🗺️ 快速總覽
 
+### 📥 資料抓取層
+
+外部資料源透過 Python 腳本抓取，儲存為日期快照。
+
 ```mermaid
-graph TB
-    subgraph External["🌐 外部資料源"]
-        GF[Google Flights]
-        AMA[Amadeus API]
-    end
-
-    subgraph Python["🐍 Python 腳本層"]
-        FRD[fetch_raw_data.py<br/>原始快照抓取]
-        FF[fetch_flights.py<br/>即時票價查詢]
-        BA[build_api.py<br/>API 建構器]
-        SH[shared.py<br/>共用工具庫]
-    end
-
-    subgraph Storage["💾 資料儲存"]
-        RAW[data/raw/<br/>日期快照]
-        RC[routes_config.json<br/>航線設定]
-        API[public/api/<br/>前端 API]
-    end
-
-    subgraph Frontend["🎨 前端 Vue 3"]
-        APP[App.vue<br/>主控元件]
-        NAV[Navbar.vue<br/>導覽列]
-        TC[TopDeals.vue<br/>最低價推薦]
-        PC[PriceChart.vue<br/>價格走勢圖]
-        PT[PriceTable.vue<br/>週價格表]
-    end
-
-    subgraph Deploy["🚀 部署"]
-        GH[GitHub Actions]
-        GHP[GitHub Pages]
-    end
-
-    GF --> FRD
-    AMA --> FRD
-    GF --> FF
-    AMA --> FF
-    SH --> FRD
-    SH --> FF
-    SH --> BA
-    RC --> FRD
-    RC --> FF
-
-    FRD --> RAW
-    RAW --> BA
-    BA --> API
-
-    API --> APP
-    APP --> NAV
-    APP --> TC
-    APP --> PC
-    APP --> PT
-
-    GH --> GHP
-    API -.->|建構時複製| GH
+graph LR
+    GF["🌐 Google Flights"] -->|爬取| FRD["fetch_raw_data.py"]
+    AMA["🌐 Amadeus API"] -->|REST| FRD
+    RC["routes_config.json<br/>4 條航線"] --> FRD
+    SH["shared.py<br/>共用工具庫"] -.->|工具函式| FRD
+    FRD --> RAW["data/raw/<br/>日期快照"]
 ```
 
----
+### 🏗️ API 建構層
 
-> 本文件由技術文件工程師自動產生，基於專案原始碼分析。
+從日期快照產生前端可用的靜態 API 檔案。
+
+```mermaid
+graph LR
+    RAW["data/raw/<br/>日期快照"] --> BA["build_api.py"]
+    BA --> API["public/api/<br/>前端 API"]
+    SH["shared.py"] -.->|工具函式| BA
+```
+
+### 🎨 前端 Vue 3
+
+前端從 API 載入資料，透過元件呈現票價資訊。
+
+```mermaid
+graph TB
+    API["public/api/"] -->|fetch| APP["App.vue<br/>主控元件"]
+    APP --> NAV["Navbar.vue<br/>導覽列"]
+    APP --> TC["TopDeals.vue<br/>最低價推薦"]
+    APP --> PC["PriceChart.vue<br/>價格走勢圖"]
+    APP --> PT["PriceTable.vue<br/>週價格表"]
+```
+
+### 🚀 部署
+
+前端建置後透過 GitHub Actions 部署到 GitHub Pages。
+
+```mermaid
+graph LR
+    APP["App.vue"] -->|vite build| GH["GitHub Actions"]
+    GH --> GHP["GitHub Pages"]
+```

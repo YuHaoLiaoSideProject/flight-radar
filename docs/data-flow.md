@@ -2,41 +2,53 @@
 
 ## 🔄 端到端資料流總覽
 
+資料從外部 API 抓取，經 API 建構，最終在前端視覺化呈現。以下是各階段的詳細流程：
+
+### 1️⃣ 資料抓取（每日快照）
+
+從 Google Flights 或 Amadeus API 抓取票價，儲存為日期快照。
+
 ```mermaid
-flowchart TB
-    subgraph S1["1️⃣ 資料抓取（每日快照）"]
-        direction LR
-        GF1["Google Flights<br/>(fast-flights)"] -->|HTTP| FRD["fetch_raw_data.py"]
-        AMA1["Amadeus API<br/>(備用)"] -->|REST| FRD
-        RC["routes_config.json<br/>4 條航線"] --> FRD
-        FRD -->|JSON| RAW["data/raw/{airline}/{route}/<br/>YYYY-MM-DD.json"]
-    end
+flowchart LR
+    GF1["Google Flights"] -->|HTTP| FRD["fetch_raw_data.py"]
+    AMA1["Amadeus API"] -->|REST| FRD
+    RC["routes_config.json"] --> FRD
+    FRD -->|JSON| RAW["data/raw/{airline}/{route}/<br/>YYYY-MM-DD.json"]
+```
 
-    subgraph S2["2️⃣ API 建構"]
-        direction LR
-        BA["build_api.py"] -->|讀取| RAW
-        BA -->|合併 + 計算| API["public/api/"]
-        BA -->|寫入| IDX["index.json<br/>全站索引"]
-        BA -->|寫入| AIR["airlines/{code}/index.json"]
-        BA -->|寫入| META["meta.json<br/>航線 meta"]
-        BA -->|寫入| WK["weeks/*.json<br/>週資料"]
-    end
+### 2️⃣ API 建構
 
-    subgraph S3["3️⃣ 前端載入"]
-        direction LR
-        IDX -->|fetch| APP["App.vue"]
-        META -->|fetch| APP
-        WK -->|背景載入| APP
-    end
+從快照產生靜態 JSON API，供前端使用。
 
-    subgraph S4["4️⃣ 視覺化"]
-        direction LR
-        APP -->|weeklyData| PC["PriceChart.vue<br/>折線圖"]
-        APP -->|topDeals| TC["TopDeals.vue<br/>最低價排行"]
-        APP -->|allWeeks| PT["PriceTable.vue<br/>價格表格"]
-    end
+```mermaid
+flowchart LR
+    RAW["data/raw/ 快照"] -->|讀取| BA["build_api.py"]
+    BA --> IDX["index.json"]
+    BA --> AIR["airlines/{code}/index.json"]
+    BA --> META["meta.json"]
+    BA --> WK["weeks/*.json"]
+```
 
-    S1 --> S2 --> S3 --> S4
+### 3️⃣ 前端載入
+
+前端從 API 載入資料，並行載入週資料。
+
+```mermaid
+flowchart LR
+    IDX["index.json"] -->|fetch| APP["App.vue"]
+    META["meta.json"] -->|fetch| APP
+    WK["weeks/*.json"] -->|背景載入| APP
+```
+
+### 4️⃣ 視覺化
+
+前端元件將資料轉換為圖表、卡片、表格。
+
+```mermaid
+flowchart LR
+    APP["App.vue"] -->|weeklyData| PC["PriceChart.vue"]
+    APP -->|topDeals| TC["TopDeals.vue"]
+    APP -->|allWeeks| PT["PriceTable.vue"]
 ```
 
 ---
@@ -265,31 +277,43 @@ flowchart LR
 
 ## 📊 價格歷史比對邏輯
 
+### 計算當前 vs 前次價格
+
+比較最新快照與前一次快照的價格，計算漲跌幅。
+
 ```mermaid
 flowchart TD
-    subgraph CalcPrice["計算當前 vs 前次價格"]
-        A["latest_snapshot.flights[i]"] -->|cur_price| COMP["priceDiff = cur_price - prev_price"]
-        B["prev_snapshot.flights[i]"] -->|prev_price| COMP
-        COMP -->|正數| UP["⬆️ 漲價"]
-        COMP -->|負數| DOWN["⬇️ 降價"]
-        COMP -->|零| SAME["➡️ 持平"]
-    end
+    A["latest_snapshot.flights[i]"] -->|cur_price| COMP["priceDiff = cur_price - prev_price"]
+    B["prev_snapshot.flights[i]"] -->|prev_price| COMP
+    COMP -->|正數| UP["⬆️ 漲價"]
+    COMP -->|負數| DOWN["⬇️ 降價"]
+    COMP -->|零| SAME["➡️ 持平"]
+```
 
-    subgraph CalcHistory["歷史走勢聚合"]
-        H1["snapshot 1<br/>2025-08-15"] -->|dep_ret key| HM["history_map"]
-        H2["snapshot 2<br/>2025-08-22"] -->|dep_ret key| HM
-        H3["snapshot 3<br/>2025-08-29"] -->|dep_ret key| HM
-        H4["snapshot 4<br/>2025-09-01"] -->|dep_ret key| HM
-        HM -->|"去重：連續相同價格不重複"| HIST["history[]<br/>依日期排序"]
-    end
+### 歷史走勢聚合
 
-    subgraph Holiday["假期標籤"]
-        T1["春節"] -->|2.5x + 3000| P1[" NT$37,130"]
-        T2["櫻花滿開"] -->|2.0x + 2000| P2[" NT$30,450"]
-        T3["賞楓"] -->|1.3x + 1000| P3[" NT$18,747"]
-        T4["跨年"] -->|1.25x + 1000| P4[" NT$18,065"]
-        T5["一般"] -->|1.08x| P5[" NT$14,744"]
-    end
+將多次快照的價格依日期聚合，產生歷史走勢資料。
+
+```mermaid
+flowchart TD
+    H1["snapshot 1<br/>2025-08-15"] -->|dep_ret key| HM["history_map"]
+    H2["snapshot 2<br/>2025-08-22"] -->|dep_ret key| HM
+    H3["snapshot 3<br/>2025-08-29"] -->|dep_ret key| HM
+    H4["snapshot 4<br/>2025-09-01"] -->|dep_ret key| HM
+    HM -->|"去重：連續相同價格不重複"| HIST["history[]<br/>依日期排序"]
+```
+
+### 假期標籤乘數
+
+假期標籤會影響票價顯示的倍數與加成。
+
+```mermaid
+flowchart LR
+    T1["春節"] -->|2.5x + 3000| P1[" NT$37,130"]
+    T2["櫻花滿開"] -->|2.0x + 2000| P2[" NT$30,450"]
+    T3["賞楓"] -->|1.3x + 1000| P3[" NT$18,747"]
+    T4["跨年"] -->|1.25x + 1000| P4[" NT$18,065"]
+    T5["一般"] -->|1.08x| P5[" NT$14,744"]
 ```
 
 ---
