@@ -1,22 +1,62 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import Navbar from './components/Navbar.vue'
 import TopDeals from './components/TopDeals.vue'
 import PriceChart from './components/PriceChart.vue'
 import PriceTable from './components/PriceTable.vue'
-import type { RootIndex, RouteMeta, RouteDetail, WeekItem } from './types/flight'
+import type { RootIndex, RouteMeta, RouteDetail, WeekItem, RouteSummary } from './types/flight'
 
 const rootIndex = ref<RootIndex | null>(null)
-const selectedRouteId = ref<string>('TPE-NRT')
-const compareAll = ref<boolean>(false)
+const selectedDestination = ref<string>('NRT') // 目的地代碼
 
 const routeDetailsMap = ref<Record<string, RouteDetail>>({})
 const loading = ref<boolean>(true)
 const error = ref<string | null>(null)
-
-// 用來追蹤每條航線的週載入狀態
 const loadingProgress = ref<Record<string, { loaded: number; total: number }>>({})
 
+// ---- 目的地分組 ----
+interface DestinationGroup {
+  destination: string
+  label: string
+  routes: RouteSummary[]
+}
+
+const destinationGroups = computed<DestinationGroup[]>(() => {
+  if (!rootIndex.value) return []
+  const map = new Map<string, RouteSummary[]>()
+  for (const r of rootIndex.value.routes) {
+    if (!map.has(r.destination)) map.set(r.destination, [])
+    map.get(r.destination)!.push(r)
+  }
+  // 排序：有華航的排前面
+  const destLabels: Record<string, string> = {
+    NRT: '東京成田', KIX: '大阪關西', FUK: '福岡',
+    HND: '東京羽田', OKA: '沖繩',
+  }
+  const order = ['NRT', 'KIX', 'FUK', 'HND', 'OKA']
+  return Array.from(map.entries())
+    .sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]))
+    .map(([dest, routes]) => ({
+      destination: dest,
+      label: destLabels[dest] || dest,
+      routes,
+    }))
+})
+
+// 選中的目的地 group
+const currentGroup = computed(() =>
+  destinationGroups.value.find(g => g.destination === selectedDestination.value)
+)
+
+// 同目的地的所有 route details
+const groupRouteDetails = computed(() => {
+  if (!currentGroup.value) return []
+  return currentGroup.value.routes
+    .map(r => routeDetailsMap.value[r.id])
+    .filter((d): d is RouteDetail => d !== undefined && d.weeklyData.length > 0)
+})
+
+// ---- 資料載入 ----
 async function loadRootIndex() {
   try {
     loading.value = true
@@ -24,11 +64,10 @@ async function loadRootIndex() {
     if (!res.ok) throw new Error('無法讀取頂層 api/index.json 索引檔')
     const data: RootIndex = await res.json()
     rootIndex.value = data
-    
-    if (data.routes && data.routes.length > 0) {
-      selectedRouteId.value = data.config?.defaultRoute || data.routes[0].id
-      await loadRouteMeta(selectedRouteId.value)
-    }
+
+    // 預設選 NRT（有華航+楽桃）
+    selectedDestination.value = data.config?.defaultRoute?.split('-')[1] || 'NRT'
+    await loadDestinationRoutes(selectedDestination.value)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     error.value = msg || '載入失敗'
@@ -37,23 +76,25 @@ async function loadRootIndex() {
   }
 }
 
+async function loadDestinationRoutes(dest: string) {
+  const group = destinationGroups.value.find(g => g.destination === dest)
+  if (!group) return
+  // 平行載入同目的地所有航司
+  await Promise.all(group.routes.map(r => loadRouteMeta(r.id)))
+}
+
 async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
-  // 如果已載入完整資料，直接回傳
-  if (routeDetailsMap.value[routeId]) {
-    return routeDetailsMap.value[routeId]
-  }
+  if (routeDetailsMap.value[routeId]) return routeDetailsMap.value[routeId]
 
   const routeSummary = rootIndex.value?.routes.find(r => r.id === routeId)
   if (!routeSummary) return null
 
   try {
-    // 載入 meta.json（path 已指向 meta.json，直接使用）
     const metaPath = routeSummary.path
     const res = await fetch(`./${metaPath}`)
     if (!res.ok) throw new Error(`無法讀取航線 meta: ${metaPath}`)
     const meta: RouteMeta = await res.json()
 
-    // 建立初始 RouteDetail
     const detail: RouteDetail = {
       ...meta,
       weeklyData: [],
@@ -63,10 +104,7 @@ async function loadRouteMeta(routeId: string): Promise<RouteDetail | null> {
       loadProgress: 0
     }
     routeDetailsMap.value[routeId] = detail
-    
-    // 開始背景載入所有週資料
     loadAllWeeks(routeId)
-    
     return detail
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -85,18 +123,13 @@ async function loadAllWeeks(routeId: string) {
   detail.isLoadingWeeks = true
   loadingProgress.value[routeId] = { loaded: 0, total: detail.totalWeeks }
 
-  // 從 meta.json 路徑提取基礎路徑 (api/airlines/CI/TPE-NRT)
   const weeksBasePath = routeSummary.path.replace('/meta.json', '') + '/weeks'
-
   const CONCURRENT = 4
 
-  // 從 latestQueryDate 重建第一個週六作為錨點（與 build_api.py 的 generate_weekly_dates 一致）
   const queryDate = detail.latestQueryDate
   if (!queryDate) return
-  // 使用本地時間避免時區問題
   const [y, m, d] = queryDate.split('-').map(Number)
-  const qd = new Date(y, m - 1, d) // month is 0-indexed
-  // JS getDay(): 0=Sun, 1=Mon, ..., 6=Sat
+  const qd = new Date(y, m - 1, d)
   let daysToSat = (6 - qd.getDay()) % 7
   if (daysToSat === 0) daysToSat = 7
   const firstSaturday = new Date(y, m - 1, d + daysToSat)
@@ -105,7 +138,6 @@ async function loadAllWeeks(routeId: string) {
   for (let i = 0; i < detail.totalWeeks; i++) {
     const d = new Date(firstSaturday)
     d.setDate(d.getDate() + i * 7)
-    // 使用本地時間格式化，避免 toISOString() 的 UTC 轉換
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     weekDates.push(dateStr)
   }
@@ -136,37 +168,17 @@ async function loadAllWeeks(routeId: string) {
   const sortedData = results.sort((a, b) => a.weekIndex - b.weekIndex)
   loadingProgress.value[routeId].loaded = detail.totalWeeks
 
-  // 整體賦值，避免 reactive mutation
   routeDetailsMap.value = {
     ...routeDetailsMap.value,
     [routeId]: { ...detail, weeklyData: sortedData, loadedWeeks: detail.totalWeeks, isLoadingWeeks: false, loadProgress: 100 }
   }
 }
 
-watch(compareAll, async (newVal) => {
-  if (newVal && rootIndex.value) {
-    for (const r of rootIndex.value.routes) {
-      if (!routeDetailsMap.value[r.id]) {
-        await loadRouteMeta(r.id)
-      }
-    }
-  }
-})
-
-watch(selectedRouteId, async (newId) => {
-  await loadRouteMeta(newId)
-})
-
-const currentRouteDetail = computed(() => {
-  return routeDetailsMap.value[selectedRouteId.value] || null
-})
-
-const allLoadedRouteDetails = computed(() => {
-  if (!rootIndex.value) return []
-  return rootIndex.value.routes
-    .map(r => routeDetailsMap.value[r.id])
-    .filter((d): d is RouteDetail => d !== undefined)
-})
+// ---- 事件處理 ----
+async function onSelectDestination(dest: string) {
+  selectedDestination.value = dest
+  await loadDestinationRoutes(dest)
+}
 
 onMounted(() => {
   loadRootIndex()
@@ -192,56 +204,67 @@ onMounted(() => {
       </div>
 
       <div v-else-if="rootIndex">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <!-- 目的地選擇器 -->
+        <div class="mb-6">
           <div class="flex flex-wrap items-center gap-2 p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl w-fit">
             <button
-              v-for="route in rootIndex.routes"
-              :key="route.id"
-              @click="selectedRouteId = route.id"
+              v-for="group in destinationGroups"
+              :key="group.destination"
+              @click="onSelectDestination(group.destination)"
               class="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 flex items-center space-x-2"
-              :class="selectedRouteId === route.id && !compareAll
+              :class="selectedDestination === group.destination
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'"
             >
-              <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: route.color }"></span>
-              <span>{{ route.name }}</span>
+              <span>{{ group.label }}</span>
+              <span class="text-[10px] opacity-60">({{ group.routes.length }}航司)</span>
             </button>
           </div>
+        </div>
 
-          <button
-            @click="compareAll = !compareAll"
-            class="px-4 py-2 rounded-xl text-xs font-medium border transition-all duration-200 flex items-center space-x-2 w-fit"
-            :class="compareAll
-              ? 'bg-indigo-600/30 border-indigo-500 text-indigo-200'
-              : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-600'"
+        <!-- 同目的地航司列表 -->
+        <div v-if="currentGroup" class="flex flex-wrap items-center gap-3 mb-6">
+          <span class="text-xs text-slate-500">航司：</span>
+          <div
+            v-for="route in currentGroup.routes"
+            :key="route.id"
+            class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs font-medium"
+            :class="'bg-slate-800/60 border-slate-700 text-slate-200'"
           >
-            <span>📊</span>
-            <span>{{ compareAll ? '顯示單一航線' : '全航線疊加對比' }}</span>
-          </button>
-        </div>
-
-        <!-- 載入進度條 -->
-        <div v-if="currentRouteDetail?.isLoadingWeeks" class="mb-6">
-          <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-            <span>載入週資料中...</span>
-            <span>{{ currentRouteDetail.loadedWeeks }} / {{ currentRouteDetail.totalWeeks }} ({{ currentRouteDetail.loadProgress }}%)</span>
-          </div>
-          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div 
-              class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300 ease-out"
-              :style="{ width: `${currentRouteDetail.loadProgress}%` }"
-            ></div>
+            <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: route.color }"></span>
+            <span>{{ route.airlineName }}</span>
+            <span class="text-[10px] text-slate-400">最低 NT$ {{ route.minPrice?.toLocaleString() }}</span>
           </div>
         </div>
 
-        <template v-if="currentRouteDetail">
-          <TopDeals :activeRoute="currentRouteDetail" />
+        <!-- 載入進度 -->
+        <div v-if="currentGroup?.routes.some(r => loadingProgress[r.id]?.loaded < loadingProgress[r.id]?.total)" class="mb-6">
+          <div
+            v-for="route in currentGroup.routes"
+            :key="'prog-' + route.id"
+            v-show="loadingProgress[route.id] && loadingProgress[route.id].loaded < loadingProgress[route.id].total"
+            class="mb-2"
+          >
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>{{ route.airlineName }} 載入週資料...</span>
+              <span>{{ loadingProgress[route.id]?.loaded || 0 }} / {{ loadingProgress[route.id]?.total || 0 }}</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                class="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300 ease-out"
+                :style="{ width: `${(loadingProgress[route.id]?.loaded || 0) / (loadingProgress[route.id]?.total || 1) * 100}%` }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        <template v-if="groupRouteDetails.length > 0">
+          <TopDeals :routes="groupRouteDetails" :destination="selectedDestination" />
           <PriceChart
-            :routes="allLoadedRouteDetails"
-            :selectedRouteId="selectedRouteId"
-            :compareAll="compareAll"
+            :routes="groupRouteDetails"
+            :destination="selectedDestination"
           />
-          <PriceTable :activeRoute="currentRouteDetail" />
+          <PriceTable :routes="groupRouteDetails" :destination="selectedDestination" />
         </template>
       </div>
     </main>
